@@ -1,0 +1,186 @@
+openapi: 3.0.3
+info:
+  title: API Squad — War Tiket Konser (Kelompok13)
+  version: 1.0.0
+  description: Kontrak lapisan Microservices untuk tema War Tiket Konser. Ganti nama sesuai kesepakatan squad.
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /events:
+    get:
+      summary: Daftar konser berpaginasi
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Satu halaman daftar konser
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HalamanEvent" }
+        "429":
+          $ref: "#/components/responses/TerlaluBanyak"
+
+  /events/{id}/lock:
+    post:
+      summary: Kunci kursi — memesan 1+ kursi pada konser tertentu (sumber daya rebutan)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, example: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qty]
+              properties:
+                qty: { type: integer, minimum: 1, example: 2 }
+      responses:
+        "201":
+          description: Kursi berhasil dikunci
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pesanan" }
+        "409":
+          description: Kursi habis atau bentrok — pemesanan ditolak
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Galat" }
+        "429":
+          $ref: "#/components/responses/TerlaluBanyak"
+
+  /payments:
+    post:
+      summary: Proses pembayaran untuk pesanan tiket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, metode]
+              properties:
+                orderId: { type: integer, example: 42 }
+                metode: { type: string, enum: [transfer, kartu, dompet], example: transfer }
+      responses:
+        "201":
+          description: Pembayaran berhasil
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pembayaran" }
+        "409":
+          description: Pesanan tidak valid atau sudah dibayar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Galat" }
+        "429":
+          $ref: "#/components/responses/TerlaluBanyak"
+
+  /tickets:
+    get:
+      summary: Daftar tiket milik pengguna (berpaginasi)
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Satu halaman daftar tiket pengguna
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HalamanTiket" }
+        "429":
+          $ref: "#/components/responses/TerlaluBanyak"
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Nomor halaman, mulai dari 1
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      description: Jumlah data per halaman (maksimum 100)
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    TerlaluBanyak:
+      description: Melewati batas laju permintaan
+      headers:
+        Retry-After:
+          description: Detik sebelum boleh mencoba lagi
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Galat" }
+
+  schemas:
+    Event:
+      type: object
+      properties:
+        id: { type: integer }
+        nama: { type: string }
+        tanggal: { type: string, format: date }
+        venue: { type: string }
+        harga: { type: integer }
+        sisa: { type: integer, description: Sisa kursi tersedia }
+
+    HalamanEvent:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Event" }
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total: { type: integer, example: 137 }
+
+    Tiket:
+      type: object
+      properties:
+        id: { type: integer }
+        eventId: { type: integer }
+        kursi: { type: string }
+        status: { type: string }
+
+    HalamanTiket:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Tiket" }
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total: { type: integer, example: 5 }
+
+    Pesanan:
+      type: object
+      properties:
+        id: { type: integer }
+        eventId: { type: integer }
+        qty: { type: integer }
+        total: { type: integer }
+
+    Pembayaran:
+      type: object
+      properties:
+        id: { type: integer }
+        orderId: { type: integer }
+        status: { type: string }
+        dibayarPada: { type: string, format: date-time }
+
+    Galat:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: KURSI_HABIS }
+            message: { type: string, example: Kursi habis atau pesanan bentrok }

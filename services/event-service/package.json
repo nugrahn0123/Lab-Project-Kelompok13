@@ -1,0 +1,13 @@
+{
+  "name": "event-service",
+  "version": "1.0.0",
+  "description": "Kelola data konser & venue — War Tiket Konser (Kelompok13)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0"
+  }
+}
