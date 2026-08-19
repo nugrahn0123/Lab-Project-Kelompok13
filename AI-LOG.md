@@ -78,6 +78,57 @@ Format tiap entri: **tanggal · peran · prompt yang dipakai · hasil · penilai
 
 ---
 
+## Sesi 2 — 2026-08-19 · Backend/API Engineer · Lapisan 1–3
+
+### 1. Implementasi `GET /events` berpaginasi dengan PostgreSQL (`event-service`)
+
+**Prompt ke Copilot:**
+> "Tambahkan koneksi pg Pool dengan DATABASE_URL, lalu implementasikan GET /events dengan pagination page/limit dan kembalikan { data, page, limit, total } seperti di modul."
+
+**Hasil yang digenerate:**
+- `event-service/index.js` menggunakan `Pool` dari `pg`, query `SELECT ... LIMIT $1 OFFSET $2`, respons `{ data, page, limit, total }`.
+- `package.json` ditambah `"pg": "^8.12.0"`.
+
+**Penilaian kritis:**
+- `limit` dibatasi `Math.min(100, ...)` — klien tidak bisa meminta jutaan baris sekaligus.
+- Parameter query menggunakan `$1, $2` (bukan string interpolasi) — bebas SQL injection.
+
+---
+
+### 2. Implementasi `POST /events/:id/lock` atomik + idempoten (`ticket-service`)
+
+**Prompt ke Copilot:**
+> "Buat endpoint POST /events/:id/lock yang mengurangi kursi_tersisa secara atomik dengan satu UPDATE ... WHERE kursi_tersisa >= $1, kembalikan 409 bila habis, dan dukung Idempotency-Key header."
+
+**Hasil yang digenerate:**
+- Pola `UPDATE events SET kursi_tersisa = kursi_tersisa - $1 WHERE id = $2 AND kursi_tersisa >= $1 RETURNING ...` — syarat diperiksa di dalam `WHERE`, satu operasi tanpa jendela balapan.
+- Cek `Idempotency-Key`: `SELECT respons FROM idempotency WHERE key = $1` sebelum proses; simpan hasil ke tabel `idempotency` sesudahnya.
+- `GET /tickets` berpaginasi konsisten dengan format yang sama.
+
+**Yang ditolak dari saran Copilot:**
+- Pola `SELECT sisa → cek di JS → UPDATE` (baca-cek-tulis) — ada jendela balapan; 50 permintaan bisa menjual dobel. Diganti dengan `UPDATE ... WHERE kursi_tersisa >= $1`.
+- SQL dirangkai dari string (`"... WHERE id = " + req.params.id`) — rawan SQL injection. Selalu pakai `$1, $2`.
+
+**Penilaian kritis:**
+- Diuji dengan skenario 50 permintaan simultan, stok 5: pola atomik membatasi tepat 5 yang lolos, sisanya mendapat 409.
+- `client.release()` tidak diperlukan karena pakai `pool.query()` — Pool mengelola koneksi otomatis.
+
+---
+
+### 3. Update `docker-compose.yml` — tambah PostgreSQL
+
+**Prompt ke Copilot:**
+> "Tambahkan service db postgres:16-alpine ke docker-compose dengan healthcheck pg_isready dan DATABASE_URL di event-service dan ticket-service."
+
+**Hasil yang digenerate:**
+- Service `db` dengan `POSTGRES_USER/PASSWORD/DB`, healthcheck `pg_isready`, volume `pgdata`.
+- `event-service` dan `ticket-service` menambahkan `DATABASE_URL` dan `depends_on: db: condition: service_healthy`.
+
+**Penilaian kritis:**
+- `depends_on` dengan `condition: service_healthy` memastikan layanan tidak start sebelum PostgreSQL siap menerima koneksi.
+
+---
+
 ### 6. Push ke GitHub
 
 **Dilakukan manual** — `git init`, `git add .`, `git commit`, `git push` ke:
