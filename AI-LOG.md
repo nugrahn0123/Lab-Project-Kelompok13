@@ -129,6 +129,49 @@ Format tiap entri: **tanggal · peran · prompt yang dipakai · hasil · penilai
 
 ---
 
+## Sesi 3 — 2026-08-19 · DevOps · Lapisan 1–2
+
+### 1. Dockerfile multi-stage untuk semua service
+
+**Prompt ke Copilot:**
+> "Tulis Dockerfile multi-stage untuk layanan Node.js Express yang memakai pg — pastikan ia menyalin package*.json sebelum kode."
+
+**Hasil yang digenerate:**
+- Stage `builder`: `COPY package*.json ./` lalu `RUN npm ci --omit=dev` — install dependensi dulu sebelum kode.
+- Stage final: `COPY --from=builder /app/node_modules` lalu `COPY . .` — layer kode terpisah dari layer deps.
+- Diterapkan ke semua 4 service.
+
+**Yang ditolak dari saran Copilot:**
+- `npm install` diganti `npm ci` — `npm ci` reproducible dan lebih cepat di CI karena tidak memodifikasi `package-lock.json`.
+- `image: latest` ditolak — diganti versi eksplisit `node:22-alpine` agar build tidak berubah sendiri.
+
+**Penilaian kritis:**
+- Layer `package*.json` + `npm ci` di-cache Docker; build ulang setelah edit kode hanya menyalin ulang kode, bukan install ulang deps (build 5 detik bukan 2 menit).
+
+---
+
+### 2. Tambah Redis + replicas + Nginx `least_conn` (`docker-compose.yml`)
+
+**Prompt ke Copilot:**
+> "Tambahkan Redis ke docker-compose, jalankan event-service dan ticket-service dengan replicas 3, dan konfigurasikan nginx sebagai load balancer dengan least_conn."
+
+**Hasil yang digenerate:**
+- Service `redis:7-alpine` dengan healthcheck `redis-cli ping`.
+- `deploy: replicas: 3` pada `event-service` dan `ticket-service` — host port dihapus karena nginx yang jadi pintu masuk.
+- `nginx/default.conf` dengan `upstream event_cluster` dan `upstream ticket_cluster` menggunakan `least_conn` — kirim permintaan ke salinan dengan koneksi paling sedikit, lebih baik daripada round-robin saat ada permintaan berat.
+- `proxy_set_header X-Request-Id $request_id` — tiap permintaan dapat ID unik untuk tracing.
+- `REDIS_URL=redis://redis:6379` ditambahkan ke service yang butuh session/pub-sub.
+
+**Yang ditolak dari saran Copilot:**
+- Kata sandi langsung di `docker-compose.yml` (`POSTGRES_PASSWORD: wartiket`) — rawan bocor jika di-commit. Dipindahkan ke `.env` (sudah ada di `.gitignore`) dan docker-compose memakai `${POSTGRES_PASSWORD}`.
+- `.env.example` dibuat sebagai template aman yang boleh di-commit.
+
+**Penilaian kritis:**
+- `deploy: replicas: 3` hanya aktif saat `docker stack deploy` (Swarm mode). Untuk `docker compose up` biasa, pakai `--scale event-service=3 ticket-service=3`.
+- `least_conn` lebih adil dari round-robin saat kursi lock butuh waktu lebih lama dari request GET biasa.
+
+---
+
 ### 6. Push ke GitHub
 
 **Dilakukan manual** — `git init`, `git add .`, `git commit`, `git push` ke:
