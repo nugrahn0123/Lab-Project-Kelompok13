@@ -8,8 +8,8 @@ const http = require("http");
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const app = express();
 const PORT = process.env.PORT || 3002;
-
-app.use(express.json());
+//okkk
+app.use(express.json()); 
 
 const galat = (code, message) => ({ error: { code, message } });
 
