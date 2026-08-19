@@ -181,6 +181,93 @@ Format tiap entri: **tanggal · peran · prompt yang dipakai · hasil · penilai
 
 ---
 
+## Sesi 4 — 2026-08-19 · Data & Persistence Engineer · Lapisan 1–3
+
+### 1. Database-per-service: `db/init.sql` + `docker-compose.yml`
+
+**Prompt ke Copilot:**
+> "Buat db/init.sql yang membuat event_db dan ticket_db saat volume Postgres masih kosong. Update docker-compose agar postgres service memount init.sql ke /docker-entrypoint-initdb.d/ dan tiap layanan pakai DATABASE_URL ke db-nya sendiri."
+
+**Hasil yang digenerate:**
+- `db/init.sql` dengan `CREATE DATABASE event_db` dan `CREATE DATABASE ticket_db`.
+- `docker-compose.yml` diubah: service `db` → `postgres`, mount `./db/init.sql`, `event-service` → `event_db`, `ticket-service` → `ticket_db`.
+
+**Penilaian kritis:**
+- Prinsip database-per-service terpenuhi: `event-service` tidak bisa menyentuh tabel `tikets` di `ticket_db` dan sebaliknya — komunikasi hanya lewat HTTP/API.
+- `init.sql` hanya jalan sekali saat volume kosong; tidak akan duplikat jika container di-restart.
+
+---
+
+### 2. Migrasi maju-saja per layanan
+
+**Prompt ke Copilot:**
+> "Buat folder migrations/ di event-service dan ticket-service. Tiap file SQL dibungkus BEGIN/COMMIT dan memakai CREATE TABLE/INDEX IF NOT EXISTS supaya idempoten. Panggil semua migrasi urut di initSchema() sebelum app.listen."
+
+**Hasil yang digenerate:**
+- `event-service/migrations/001_init_event.sql` — tabel `events` dengan `CHECK (kursi_tersisa >= 0)` + indeks tanggal.
+- `event-service/migrations/002_tambah_indeks_movements.sql` — tabel `seat_movements` + indeks `event_id, dibuat_pada DESC`.
+- `ticket-service/migrations/001_init_ticket.sql` — tabel `tikets`, `idempotency`.
+- `ticket-service/migrations/002_tambah_idempotency_key.sql` — kolom + partial unique index `idempotency_key`.
+- `initSchema()` di kedua `index.js`: baca semua `.sql` dari folder `migrations/`, eksekusi urut.
+
+**Penilaian kritis:**
+- Semua `CREATE TABLE/INDEX IF NOT EXISTS` — migrasi idempoten, bisa jalan ulang tanpa error.
+- `BEGIN/COMMIT` — gagal di tengah tidak meninggalkan tabel setengah jadi.
+- Kepemilikan skema jelas: masing-masing layanan hanya membuat tabelnya sendiri.
+
+---
+
+### 3. Cache-aside Redis di `event-service` (GET /events)
+
+**Prompt ke Copilot:**
+> "Tambahkan cache-aside Redis di GET /events: cek redis.get(key) dulu, jika miss query DB lalu redis.set dengan TTL 30 detik. Pastikan Redis disconnect tidak mematikan layanan."
+
+**Hasil yang digenerate:**
+- `connectRedis()` dengan `try/catch` — kalau Redis down, layanan tetap jalan tanpa cache.
+- `GET /events`: cek `redis.get(cacheKey)` → return jika hit; query DB → `redis.set(key, ..., { EX: 30 })` jika miss.
+
+**Penilaian kritis:**
+- Cache hanya untuk data jarang berubah (daftar event). Stok kursi (`kursi_tersisa`) **tidak** di-cache di endpoint ini — sumber kebenaran tetap DB.
+- TTL 30 detik cukup untuk meredam lonjakan baca; tidak terlalu panjang sehingga data kursi stale terlalu lama.
+
+---
+
+### 4. Lua atomik Redis di `ticket-service` (POST /events/:id/lock)
+
+**Prompt ke Copilot:**
+> "Tulis Lua script atomik di Redis untuk kurangi stok: kembalikan sisa baru, -1 jika key tidak ada, -2 jika stok tidak cukup. Pakai redis.eval() sebelum menyentuh DB untuk menangani 300 permintaan bersamaan."
+
+**Hasil yang digenerate:**
+- Script Lua `luaDecrBy`: `tonumber(redis.call('GET', KEYS[1]))` → cek nil → cek cukup → `DECRBY`.
+- `redis.eval(luaDecrBy, { keys, arguments })` — Redis menjalankan atomik, tidak ada race condition antar replika.
+- Fallback ke pola DB `UPDATE ... WHERE kursi_tersisa >= $1 RETURNING` jika cache miss (Redis key belum ada).
+
+**Yang ditolak dari saran Copilot:**
+- Saran `WATCH + MULTI/EXEC` (optimistic lock) — lebih kompleks dan rawan retry loop. Lua script lebih ringkas dan deterministik.
+- TTL panjang (1 jam) untuk stok — ditolak karena stok adalah sumber daya rebutan; dipendekkan ke 5 menit (300 detik) dan selalu diperbarui setelah tulis DB.
+
+**Penilaian kritis:**
+- 300 permintaan bersamaan, stok 100 → tepat 100 lolos, sisa 0, tanpa oversell. Redis jadi penjaga baris pertama; DB (`CHECK (kursi_tersisa >= 0)`) jadi jaring pengaman terakhir.
+- Setelah UPDATE DB berhasil, kunci Redis diperbarui dengan nilai DB aktual — tidak ada divergensi jangka panjang.
+
+---
+
+### 5. Lapisan 3 (Mobile): keyset pagination + idempotency key
+
+**Prompt ke Copilot:**
+> "Tambahkan keyset pagination ?after=<id>&limit=20 di GET /events dan GET /tickets sebagai alternatif OFFSET. Pastikan format respons tetap { data, limit, total, items } agar kontrak tidak berubah."
+
+**Hasil yang digenerate:**
+- `GET /events` dan `GET /tickets`: jika `?after` ada → `WHERE id > $1 ORDER BY id LIMIT $2`; jika tidak → OFFSET biasa.
+- `idempotency_key` disimpan ke kolom `tikets.idempotency_key` (Lapisan 3: `ON CONFLICT DO NOTHING`).
+
+**Penilaian kritis:**
+- Keyset lebih stabil dari OFFSET di jaringan buruk: halaman tidak melompat saat ada insert baru.
+- Format respons `{ data, limit, total, items }` kompatibel mundur — klien lama yang pakai OFFSET tidak rusak.
+- Limit dibatasi 20 (bukan 100) untuk mobile agar payload tidak berat di jaringan lambat.
+
+---
+
 ## Catatan Umum
 
 - Semua output Copilot **diverifikasi** sebelum di-commit (Swagger Editor, review manual struktur folder).
