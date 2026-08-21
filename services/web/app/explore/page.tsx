@@ -91,7 +91,7 @@ export default function ExplorePage() {
               Trending Sekarang
             </h2>
             <div className="flex flex-col gap-3">
-              {events.filter(e => e.isHot).map((event, i) => (
+              {allEvents.filter(e => e.isHot).map((event, i) => (
                 <motion.div
                   key={event.id}
                   initial={{ opacity: 0, y: 12 }}
