@@ -52,7 +52,7 @@ export default function BottomNav() {
                   strokeWidth={active ? 2.5 : 1.7}
                 />
               </motion.div>
-              <span className={	ext-[9.5px] font-semibold tracking-wide + (active ? 'text-white/90' : 'text-white/35')}>
+              <span className={active ? 'text-[9.5px] font-semibold tracking-wide text-white/90' : 'text-[9.5px] font-semibold tracking-wide text-white/35'}>
                 {label}
               </span>
               {active && (
