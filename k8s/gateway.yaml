@@ -1,0 +1,88 @@
+# k8s/gateway.yaml — Nginx gateway sebagai LoadBalancer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gateway }
+  template:
+    metadata:
+      labels: { app: gateway }
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+spec:
+  selector: { app: gateway }
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      targetPort: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  default.conf: |
+    upstream event_cluster {
+      least_conn;
+      server event-service:3001;
+    }
+    upstream ticket_cluster {
+      least_conn;
+      server ticket-service:3002;
+    }
+    upstream payment_cluster {
+      least_conn;
+      server payment-service:3003;
+    }
+    upstream notification_cluster {
+      least_conn;
+      server notification-service:3004;
+    }
+    server {
+      listen 80;
+      location /events {
+        proxy_pass http://event_cluster;
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-Id $request_id;
+      }
+      location /tickets {
+        proxy_pass http://ticket_cluster;
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-Id $request_id;
+      }
+      location /payments {
+        proxy_pass http://payment_cluster;
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-Id $request_id;
+      }
+      location /notifications {
+        proxy_pass http://notification_cluster;
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-Id $request_id;
+      }
+      location /health {
+        access_log off;
+        return 200 '{"status":"ok"}';
+        add_header Content-Type application/json;
+      }
+    }

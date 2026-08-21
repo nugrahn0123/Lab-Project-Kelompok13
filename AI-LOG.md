@@ -268,6 +268,80 @@ Format tiap entri: **tanggal · peran · prompt yang dipakai · hasil · penilai
 
 ---
 
+---
+
+## Sesi 5 — 2026-08-21 · DevOps · Lapisan 2 (Scalable Systems) + Kubernetes Bonus
+
+### 1. Tambah endpoint `/health` ke semua 4 layanan
+
+**Prompt ke Copilot:**
+> "Tambahkan GET /health ke semua service Node.js yang menjalankan SELECT 1 ke DB dan mengembalikan { status: 'ok' } atau 503 jika DB tidak bisa dijangkau."
+
+**Hasil yang digenerate:**
+- `GET /health` ditambahkan sebelum `main()` di keempat `index.js`.
+- Menggunakan `pool.query("SELECT 1")` sebagai liveness DB check.
+- Kembalikan 503 jika query gagal — container dinyatakan tidak sehat oleh Docker/Kubernetes.
+
+**Penilaian kritis:**
+- Endpoint `/health` wajib ada agar `healthcheck` Docker dan `readinessProbe` Kubernetes bisa menentukan kapan pod siap menerima traffic — tanpanya, gateway akan mengirim request ke container yang masih inisialisasi.
+- Tidak mengekspos detail stack trace di respons 503 — hanya `message: e.message`.
+
+---
+
+### 2. Perbaiki `docker-compose.yml` — healthcheck app services + replicas penuh
+
+**Prompt ke Copilot:**
+> "Tambahkan healthcheck wget ke semua 4 app service, beri replicas 3 ke payment-service dan notification-service, hapus port mapping langsung mereka (harus lewat nginx), dan perbaiki gateway depends_on memakai condition: service_healthy."
+
+**Hasil yang digenerate:**
+- `healthcheck` dengan `wget -qO- http://localhost:<PORT>/health || exit 1` di semua 4 service.
+- `deploy: replicas: 3` ditambahkan ke `payment-service` dan `notification-service`.
+- Port `3003:3003` dan `3004:3004` dihapus — akses hanya lewat nginx `:8080`.
+- `gateway.depends_on` diubah dari list nama ke `condition: service_healthy` untuk semua 4 service.
+
+**Yang ditolak dari saran Copilot:**
+- `curl` untuk healthcheck di Alpine — Alpine tidak punya `curl` secara default, hanya `wget`. Diganti `wget -qO-`.
+- `start_period` 5 detik terlalu pendek untuk service Node.js yang menjalankan migrasi DB — diubah ke 30 detik.
+
+**Penilaian kritis:**
+- Gateway sekarang hanya start setelah semua 4 service lolos healthcheck — tidak ada 502 saat stack baru dijalankan.
+- Port tidak diekspos langsung: seluruh traffic masuk lewat nginx, konsisten dengan arsitektur gateway.
+
+---
+
+### 3. Update `nginx/default.conf` — `least_conn` untuk semua upstream + endpoint `/health`
+
+**Prompt ke Copilot:**
+> "Tambahkan least_conn ke upstream payment_cluster dan notification_cluster, lalu tambahkan location /health yang mengembalikan 200 JSON tanpa meneruskan ke backend."
+
+**Hasil yang digenerate:**
+- `least_conn` ditambahkan ke `payment_cluster` dan `notification_cluster`.
+- `location /health` mengembalikan `200 '{"status":"ok"}'` langsung dari nginx — tidak membebani backend.
+
+**Penilaian kritis:**
+- `curl http://localhost:8080/health` kini bisa membuktikan stack berjalan dari luar tanpa menyentuh DB.
+- Semua 4 cluster pakai `least_conn` — konsisten; tidak ada upstream yang masih round-robin sementara yang lain tidak.
+
+---
+
+### 4. Kubernetes manifests (bonus — `k8s/`)
+
+**Prompt ke Copilot:**
+> "Buat Deployment + Service Kubernetes untuk semua layanan dengan replicas 3, readinessProbe ke /health, dan ConfigMap untuk nginx. Simpan di k8s/."
+
+**Hasil yang digenerate:**
+- `k8s/postgres.yaml` — StatefulSet Postgres 1 replica + PVC + readinessProbe `pg_isready`.
+- `k8s/redis.yaml` — Deployment Redis 1 replica + readinessProbe `redis-cli ping`.
+- `k8s/event-service.yaml`, `ticket-service.yaml`, `payment-service.yaml`, `notification-service.yaml` — masing-masing Deployment 3 replica + Service ClusterIP + `readinessProbe httpGet /health`.
+- `k8s/gateway.yaml` — Deployment nginx + Service LoadBalancer + ConfigMap `nginx-conf` (sama dengan `nginx/default.conf`).
+
+**Penilaian kritis:**
+- `readinessProbe` memastikan pod tidak menerima traffic sebelum migrasi DB selesai — ini padanan `healthcheck` + `condition: service_healthy` di compose.
+- Kredensial DB disimpan di Secret (`pg-secret`, `db-urls`) bukan di manifest — manifest aman di-commit.
+- `kubectl scale deployment/event-service --replicas=5` bisa dilakukan langsung tanpa restart apapun.
+
+---
+
 ## Catatan Umum
 
 - Semua output Copilot **diverifikasi** sebelum di-commit (Swagger Editor, review manual struktur folder).

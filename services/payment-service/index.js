@@ -91,6 +91,15 @@ app.post("/payments", async (req, res) => {
   }
 });
 
+app.get("/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", service: "payment-service" });
+  } catch (e) {
+    res.status(503).json({ status: "error", message: e.message });
+  }
+});
+
 async function main() {
   await initSchema();
   app.listen(PORT, () => console.log(`payment-service berjalan di port ${PORT}`));
