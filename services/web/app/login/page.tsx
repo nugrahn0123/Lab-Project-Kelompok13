@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Music2 } from 'lucide-react'
 import { saveUser } from '@/lib/auth'
 
 export default function LoginPage() {
@@ -42,7 +42,10 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-10 text-center"
       >
-        <div className="text-4xl mb-3">🎵</div>
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 mx-auto"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
+          <Music2 size={28} className="text-white" />
+        </div>
         <h1 className="text-2xl font-black text-wt-text tracking-tight">WarTiket</h1>
         <p className="text-wt-muted text-sm mt-1">Masuk ke akunmu</p>
       </motion.div>

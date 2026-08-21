@@ -11,7 +11,6 @@ const GRADIENTS = [
   'linear-gradient(135deg, #f97316, #ec4899)',
   'linear-gradient(135deg, #a855f7, #22c55e)',
 ]
-const EMOJIS = ['🎸', '🎵', '🎤', '🥁', '🎹', '🎻', '🎧', '🎺', '🎷', '🎼']
 const GENRES = ['Rock', 'Pop', 'Jazz', 'R&B', 'Indie', 'Folk', 'Live']
 
 function formatTanggal(iso: string): string {
@@ -28,7 +27,7 @@ export function toEvent(e: Record<string, unknown>): Event {
   const sisaRaw = Number(e.kursi_tersisa ?? e.seats ?? 0)
   return {
     id,
-    emoji:      EMOJIS[id % EMOJIS.length],
+    emoji:      '',
     gradient:   GRADIENTS[id % GRADIENTS.length],
     title:      nama,
     artist:     nama.split(/[—–]/)[0].trim() || nama,
