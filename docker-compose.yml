@@ -19,7 +19,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GATEWAY_URL=http://gateway:8080
+      - GATEWAY_URL=http://gateway:80
       - TICKET_SERVICE_URL=http://ticket-service:3002
       - EVENT_SERVICE_URL=http://event-service:3001
       - NODE_ENV=production
