@@ -58,7 +58,6 @@ async function initSchema() {
       await client.query(sql);
       console.log(`event-service: migrasi ${file} selesai`);
     }
-    }
   } finally {
     await client.query('SELECT pg_advisory_unlock(1001)');
     client.release();
