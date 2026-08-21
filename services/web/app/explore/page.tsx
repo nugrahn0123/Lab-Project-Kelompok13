@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { Search, X, TrendingUp, Zap, Star, Music, Headphones, Mic, Music2, SearchX } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import EventCard from '@/components/EventCard'
-import { events as dummyEvents } from '@/lib/dummy-data'
 import { fetchEvents } from '@/lib/api'
 import type { Event } from '@/lib/dummy-data'
 
@@ -21,7 +20,7 @@ const GENRES: { name: string; Icon: LucideIcon; gradient: string }[] = [
 
 export default function ExplorePage() {
   const [query, setQuery]       = useState('')
-  const [allEvents, setAll]     = useState<Event[]>(dummyEvents)
+  const [allEvents, setAll]     = useState<Event[]>([])
   const router = useRouter()
 
   useEffect(() => {

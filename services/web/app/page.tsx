@@ -29,10 +29,8 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchEvents(1, 54).then(data => {
-      // Hanya tampilkan event aktif (status aktif dari API, tanggal >= hari ini)
-      const today = new Date().toISOString().slice(0, 10)
-      const aktif = data.filter(e => e.seats > 0 && e.dateRaw >= today)
-      setAll(aktif.length > 0 ? aktif : data.filter(e => e.seats > 0))
+      // API sudah filter status='aktif', tampilkan semua yang dikembalikan
+      setAll(data)
     }).finally(() => setLoading(false))
   }, [])
 

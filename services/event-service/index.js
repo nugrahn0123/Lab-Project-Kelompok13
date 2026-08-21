@@ -89,17 +89,17 @@ async function seed() {
       [18, "Kahitna — Cerita Cinta Tour",                        "2026-05-09", "Celebes Convention Center (CCC), Makassar", 420000, 0,   "selesai"],
       [19, "Payung Teduh — Kucari Kamu Tour",                    "2026-05-23", "Gedung Serbaguna Phinisi, Makassar",         215000, 0,   "selesai"],
       [20, "Rizky Febian — Cuek Tour Makassar",                  "2026-06-06", "Trans Studio Makassar",                      315000, 0,   "selesai"],
-      [21, "Sal Priadi — Gajah Live Makassar",                   "2026-06-20", "Pantai Losari Outdoor Stage, Makassar",      230000, 0,   "selesai"],
-      [22, "Lyodra — Bila Tour Makassar",                        "2026-07-04", "Celebes Convention Center (CCC), Makassar", 275000, 0,   "selesai"],
-      [23, "Gilga Sahid — Lamunan Tour Makassar",                "2026-07-18", "Lapangan Karebosi, Makassar",                135000, 0,   "selesai"],
+      [21, "Sal Priadi — Gajah Live Makassar",                   "2026-08-22", "Pantai Losari Outdoor Stage, Makassar",      230000, 5,   "aktif"],
+      [22, "Lyodra — Bila Tour Makassar",                        "2026-08-22", "Celebes Convention Center (CCC), Makassar", 275000, 3,   "aktif"],
+      [23, "Gilga Sahid — Lamunan Tour Makassar",                "2026-08-23", "Lapangan Karebosi, Makassar",                135000, 8,   "aktif"],
       // ── Agustus 2026 — war tiket aktif (kursi hampir habis)
-      [24, "Pamungkas — To The Bone Live",                       "2026-08-22", "Trans Studio Makassar",                      275000, 4,   "aktif"],
-      [25, "Maudy Ayunda — Perahu Kertas Anniversary Concert",   "2026-08-29", "Celebes Convention Center (CCC), Makassar", 385000, 2,   "aktif"],
-      // ── September – Desember 2026
-      [26, "Yura Yunita — Merakit Concert Makassar",             "2026-09-05", "Pantai Losari Outdoor Stage, Makassar",      250000, 88,  "aktif"],
-      [27, "Maliq & D'Essentials — Wavelength Tour",             "2026-09-12", "Trans Studio Makassar",                      325000, 7,   "aktif"],
-      [28, "Nadin Amizah — Amin Paling Serius Tour",             "2026-09-19", "Gedung Serbaguna Phinisi, Makassar",         295000, 35,  "aktif"],
-      [29, "Fourtwnty — Zona Nyaman Live Makassar",              "2026-09-26", "Pantai Losari Outdoor Stage, Makassar",      180000, 200, "aktif"],
+      [24, "Pamungkas — To The Bone Live",                       "2026-08-23", "Trans Studio Makassar",                      275000, 4,   "aktif"],
+      [25, "Maudy Ayunda — Perahu Kertas Anniversary Concert",   "2026-08-24", "Celebes Convention Center (CCC), Makassar", 385000, 2,   "aktif"],
+      // ── Akhir Agustus — minggu ini
+      [26, "Yura Yunita — Merakit Concert Makassar",             "2026-08-24", "Pantai Losari Outdoor Stage, Makassar",      250000, 25,  "aktif"],
+      [27, "Maliq & D'Essentials — Wavelength Tour",             "2026-08-25", "Trans Studio Makassar",                      325000, 1,   "aktif"],
+      [28, "Nadin Amizah — Amin Paling Serius Tour",             "2026-08-26", "Gedung Serbaguna Phinisi, Makassar",         295000, 40,  "aktif"],
+      [29, "Fourtwnty — Zona Nyaman Live Makassar",              "2026-08-28", "Pantai Losari Outdoor Stage, Makassar",      180000, 6,   "aktif"],
       [30, "Nadhif Basalamah — Hanya Manusia Live",              "2026-10-03", "Celebes Convention Center (CCC), Makassar", 245000, 9,   "aktif"],
       [31, "Rendy Pandugo — My Way Tour",                        "2026-10-10", "Gedung Serbaguna Phinisi, Makassar",         225000, 55,  "aktif"],
       [32, "Stars and Rabbit — Live Makassar",                   "2026-10-17", "Pantai Losari Outdoor Stage, Makassar",      160000, 130, "aktif"],
@@ -135,7 +135,11 @@ async function seed() {
         `INSERT INTO events (id, nama, tanggal, venue, kota, harga, kursi_total, kursi_tersisa, status)
          OVERRIDING SYSTEM VALUE
          VALUES ($1, $2, $3, $4, 'Makassar', $5, $6, $7, $8)
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT (id) DO UPDATE SET
+           tanggal       = EXCLUDED.tanggal,
+           status        = EXCLUDED.status,
+           kursi_total   = CASE WHEN events.status = 'selesai' THEN EXCLUDED.kursi_total   ELSE events.kursi_total   END,
+           kursi_tersisa = CASE WHEN events.status = 'selesai' THEN EXCLUDED.kursi_tersisa ELSE events.kursi_tersisa END`,
         [id, nama, tanggal, venue, harga, kursiTotal, sisa, status]
       );
     }

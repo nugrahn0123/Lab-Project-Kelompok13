@@ -7,7 +7,7 @@ import {
   ArrowLeft, Heart, MapPin, Calendar, Music, Users,
   ChevronDown, ChevronUp, Minus, Plus,
 } from 'lucide-react'
-import { events as dummyEvents, formatPrice, getSeatsColor } from '@/lib/dummy-data'
+import { formatPrice, getSeatsColor } from '@/lib/dummy-data'
 import { fetchEvent } from '@/lib/api'
 import type { Event } from '@/lib/dummy-data'
 
@@ -16,7 +16,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const router  = useRouter()
   const numId   = parseInt(id)
 
-  const [event,    setEvent]    = useState<Event | null>(dummyEvents.find(e => e.id === numId) ?? null)
+  const [event,    setEvent]    = useState<Event | null>(null)
   const [qty,      setQty]      = useState(1)
   const [liked,    setLiked]    = useState(false)
   const [expanded, setExpanded] = useState(false)
