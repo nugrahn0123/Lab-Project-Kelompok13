@@ -7,6 +7,7 @@ import { Landmark, CreditCard, Wallet, AlertCircle } from 'lucide-react'
 import TopBar from '@/components/TopBar'
 import { events as dummyEvents, formatPrice } from '@/lib/dummy-data'
 import { fetchEvent, lockSeats, processPayment } from '@/lib/api'
+import { getUser } from '@/lib/auth'
 import type { Event } from '@/lib/dummy-data'
 
 const METHODS = [
@@ -27,9 +28,12 @@ function PaymentContent() {
   const [loading, setLoading] = useState(false)
   const [errMsg,  setErrMsg]  = useState<string | null>(null)
 
+  // Auth guard — redirect ke login jika belum masuk
   useEffect(() => {
+    const user = getUser()
+    if (!user) { router.replace('/login'); return }
     fetchEvent(eventId).then(data => { if (data) setEvent(data) })
-  }, [eventId])
+  }, [eventId, router])
 
   if (!event) { return <div className="flex items-center justify-center h-screen"><p className="text-wt-muted">Memuat…</p></div> }
 
@@ -37,17 +41,19 @@ function PaymentContent() {
   const total      = event.price * qty + serviceFee
 
   const handlePay = async () => {
+    const user = getUser()
+    if (!user) { router.replace('/login'); return }
     setLoading(true)
     setErrMsg(null)
     // 1. Kunci kursi di ticket-service
-    const lockResult = await lockSeats(eventId, qty, event.price)
+    const lockResult = await lockSeats(eventId, qty, event.price, user.id)
     if ('error' in lockResult) {
       setErrMsg(lockResult.error.message)
       setLoading(false)
       return
     }
     // 2. Proses pembayaran di payment-service
-    const payResult = await processPayment(lockResult.pesananId, total, method)
+    const payResult = await processPayment(lockResult.pesananId, total, method, user.id)
     if ('error' in payResult) {
       setErrMsg(payResult.error.message)
       setLoading(false)

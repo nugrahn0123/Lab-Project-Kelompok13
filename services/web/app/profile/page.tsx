@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import {
@@ -7,11 +8,12 @@ import {
   Settings, LogOut, Ticket, Shield,
 } from 'lucide-react'
 import TopBar from '@/components/TopBar'
-import { myTickets } from '@/lib/dummy-data'
+import { getUser, clearUser } from '@/lib/auth'
+import type { AuthUser } from '@/lib/auth'
 
 const MENU = [
   { icon: Ticket,     label: 'Tiket Saya',          desc: 'Kelola tiket kamu',      href: '/tickets' },
-  { icon: Bell,       label: 'Notifikasi',           desc: '2 notifikasi baru',      href: '#' },
+  { icon: Bell,       label: 'Notifikasi',           desc: 'Riwayat notifikasi',     href: '#' },
   { icon: CreditCard, label: 'Riwayat Pembayaran',   desc: 'Semua transaksi',        href: '#' },
   { icon: User,       label: 'Edit Profil',          desc: 'Perbarui info akunmu',   href: '#' },
   { icon: Shield,     label: 'Keamanan',             desc: 'Password & privasi',     href: '#' },
@@ -20,12 +22,27 @@ const MENU = [
 
 export default function ProfilePage() {
   const router = useRouter()
-  const activeTickets = myTickets.filter(t => t.status === 'aktif').length
+  const [user, setUser] = useState<AuthUser | null>(null)
+
+  useEffect(() => {
+    const u = getUser()
+    if (!u) { router.replace('/login'); return }
+    setUser(u)
+  }, [router])
+
+  const handleLogout = () => {
+    clearUser()
+    router.replace('/login')
+  }
+
+  if (!user) return null
+
+  const initials = user.nama.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
   const STATS = [
-    { num: activeTickets,      label: 'Tiket Aktif' },
-    { num: myTickets.length,   label: 'Total Konser', divider: true },
-    { num: 2,                  label: 'Notifikasi',   divider: true },
+    { num: 0,  label: 'Tiket Aktif' },
+    { num: 0,  label: 'Total Konser', divider: true },
+    { num: 0,  label: 'Notifikasi',   divider: true },
   ]
 
   return (
@@ -40,9 +57,8 @@ export default function ProfilePage() {
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 220, damping: 20 }}
-          whileTap={{ scale: 0.93 }}
         >
-          <span className="text-[28px] font-black text-white tracking-tight select-none">BS</span>
+          <span className="text-[28px] font-black text-white tracking-tight select-none">{initials}</span>
         </motion.div>
 
         <motion.h2
@@ -51,7 +67,7 @@ export default function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.12 }}
         >
-          Budi Santoso
+          {user.nama}
         </motion.h2>
         <motion.p
           className="text-sm text-wt-muted mt-1 mb-5"
@@ -59,7 +75,7 @@ export default function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18 }}
         >
-          budi@example.com
+          {user.email}
         </motion.p>
 
         {/* Stats row */}
@@ -98,6 +114,31 @@ export default function ProfilePage() {
               <Icon size={17} className="text-wt-accent2" />
             </div>
             <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-wt-text">{label}</p>
+              <p className="text-xs text-wt-muted">{desc}</p>
+            </div>
+            <ChevronRight size={15} className="text-wt-border flex-shrink-0" />
+          </motion.button>
+        ))}
+
+        {/* Logout */}
+        <motion.button
+          className="flex items-center gap-3.5 p-4 bg-wt-card border border-wt-red/30 rounded-2xl w-full mt-1"
+          whileTap={{ scale: 0.98 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: MENU.length * 0.05 + 0.3 }}
+          onClick={handleLogout}
+        >
+          <div className="w-10 h-10 rounded-xl bg-wt-red/10 flex items-center justify-center flex-shrink-0">
+            <LogOut size={17} className="text-wt-red" />
+          </div>
+          <span className="text-sm font-semibold text-wt-red">Keluar</span>
+        </motion.button>
+      </div>
+    </div>
+  )
+}
               <p className="text-sm font-semibold text-wt-text">{label}</p>
               <p className="text-xs text-wt-muted">{desc}</p>
             </div>

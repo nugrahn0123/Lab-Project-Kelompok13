@@ -21,6 +21,7 @@ services:
     environment:
       - GATEWAY_URL=http://gateway:8080
       - TICKET_SERVICE_URL=http://ticket-service:3002
+      - EVENT_SERVICE_URL=http://event-service:3001
       - NODE_ENV=production
     depends_on:
       - gateway

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import TopBar from '@/components/TopBar'
 import { myTickets, formatPrice } from '@/lib/dummy-data'
 import { fetchTickets, toEvent } from '@/lib/api'
+import { getUser } from '@/lib/auth'
 import { Ticket } from 'lucide-react'
 
 type Status = 'aktif' | 'selesai' | 'dibatalkan'
@@ -28,9 +29,10 @@ export default function TicketsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchTickets(1).then(data => {
+    const user = getUser()
+    if (!user) { router.replace('/login'); return }
+    fetchTickets(user.id).then(data => {
       if (data.length === 0) return
-      // Transformasi tiket dari backend ke format UI
       const mapped = data.map((t: Record<string, unknown>) => ({
         id:          String(t.id),
         eventId:     Number(t.event_id),
@@ -44,7 +46,7 @@ export default function TicketsPage() {
       }))
       setList(mapped as typeof myTickets)
     })
-  }, [])
+  }, [router])
 
   const filtered = list.filter(t => t.status === tab)
 

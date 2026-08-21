@@ -3,10 +3,13 @@ const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("redis");
+const { createHash } = require("crypto");
 // Load .env dari root project jika DATABASE_URL belum di-set (lokal tanpa Docker)
 if (!process.env.DATABASE_URL) {
   require("dotenv").config({ path: path.join(__dirname, "../../.env") });
 }
+
+const hashPw = (pw) => createHash("sha256").update(pw).digest("hex");
 
 // Set search_path via PostgreSQL startup option — tidak ada race condition
 const _dbUrl = new URL(process.env.DATABASE_URL);
@@ -139,13 +142,14 @@ async function seed() {
     // Reset sequence agar INSERT berikutnya tidak bentrok dengan id 1-54
     await pool.query("SELECT setval(pg_get_serial_sequence('events', 'id'), 54)");
 
-    // Seed user — id=1 dipake di frontend sebagai demo user
+    // Seed user — user demo bisa login: demo@konser.id / demo123
     await pool.query(`
-      INSERT INTO users (nama, email, telepon) VALUES
-        ('Demo User',    'demo@konser.id',    '081234567890'),
-        ('Budi Santoso', 'budi@example.com',  '082345678901'),
-        ('Sari Dewi',    'sari@example.com',  '083456789012')
-      ON CONFLICT (email) DO NOTHING
+      INSERT INTO users (nama, email, telepon, password_hash) VALUES
+        ('Demo User',    'demo@konser.id',    '081234567890', '${hashPw("demo123")}'),
+        ('Budi Santoso', 'budi@example.com',  '082345678901', '${hashPw("budi123")}'),
+        ('Sari Dewi',    'sari@example.com',  '083456789012', '${hashPw("sari123")}')
+      ON CONFLICT (email) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash
     `);
     console.log("event-service: seed 54 konser Makassar selesai ✓");
   } catch (e) {
@@ -268,20 +272,44 @@ app.post("/events/:id/lock-internal", async (req, res) => {
   }
 });
 
-// POST /users — daftarkan pengguna baru
+// POST /users — daftarkan pengguna baru (register)
 app.post("/users", async (req, res) => {
-  const { nama, email, telepon } = req.body;
-  if (!nama || !email) {
-    return res.status(400).json(galat("DATA_TIDAK_LENGKAP", "nama dan email wajib diisi"));
+  const { nama, email, telepon, password } = req.body;
+  if (!nama || !email || !password) {
+    return res.status(400).json(galat("DATA_TIDAK_LENGKAP", "nama, email, dan password wajib diisi"));
+  }
+  if (password.length < 6) {
+    return res.status(400).json(galat("PASSWORD_TERLALU_PENDEK", "Password minimal 6 karakter"));
   }
   try {
     const { rows } = await pool.query(
-      "INSERT INTO users (nama, email, telepon) VALUES ($1, $2, $3) RETURNING id, nama, email, telepon, dibuat_pada",
-      [nama, email, telepon || null]
+      "INSERT INTO users (nama, email, telepon, password_hash) VALUES ($1, $2, $3, $4) RETURNING id, nama, email, telepon, dibuat_pada",
+      [nama, email, telepon || null, hashPw(password)]
     );
     res.status(201).json(rows[0]);
   } catch (e) {
     if (e.code === "23505") return res.status(409).json(galat("EMAIL_SUDAH_TERDAFTAR", "Email sudah dipakai"));
+    console.error(e);
+    res.status(500).json(galat("SERVER_ERROR", "Terjadi kesalahan server"));
+  }
+});
+
+// POST /login — autentikasi pengguna
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json(galat("DATA_TIDAK_LENGKAP", "email dan password wajib diisi"));
+  }
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, nama, email, telepon FROM users WHERE email = $1 AND password_hash = $2",
+      [email, hashPw(password)]
+    );
+    if (!rows.length) {
+      return res.status(401).json(galat("KREDENSIAL_SALAH", "Email atau password salah"));
+    }
+    res.json(rows[0]);
+  } catch (e) {
     console.error(e);
     res.status(500).json(galat("SERVER_ERROR", "Terjadi kesalahan server"));
   }

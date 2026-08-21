@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import BottomNav from './BottomNav'
 
-const HIDE_ROUTES = ['/event', '/payment', '/success']
+const HIDE_ROUTES = ['/event', '/payment', '/success', '/login', '/register']
 
 export default function BottomNavWrapper() {
   const pathname = usePathname()

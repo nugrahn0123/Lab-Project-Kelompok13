@@ -75,12 +75,13 @@ export async function lockSeats(
   eventId: number,
   qty: number,
   hargaSatuan: number,
+  userId = 1,
 ): Promise<{ pesananId: number } | { error: { code: string; message: string } }> {
   try {
     const r = await fetch('/api/lock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventId, qty, userId: 1, hargaSatuan }),
+      body: JSON.stringify({ eventId, qty, userId, hargaSatuan }),
     })
     const json = await r.json()
     if (!r.ok) return { error: json.error ?? { code: 'GAGAL', message: 'Gagal mengunci kursi' } }
@@ -95,12 +96,13 @@ export async function processPayment(
   pesananId: number,
   jumlah: number,
   metode: string,
+  userId = 1,
 ): Promise<{ nomorInvoice: string } | { error: { code: string; message: string } }> {
   try {
     const r = await fetch('/api/payments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pesananId, userId: 1, jumlah, metode }),
+      body: JSON.stringify({ pesananId, userId, jumlah, metode }),
     })
     const json = await r.json()
     if (!r.ok) return { error: json.error ?? { code: 'GAGAL', message: 'Pembayaran gagal' } }
