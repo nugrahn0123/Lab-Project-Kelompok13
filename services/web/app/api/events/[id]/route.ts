@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const GW = process.env.GATEWAY_URL ?? 'http://gateway:8080'
+const GW = process.env.GATEWAY_URL ?? 'http://gateway:80'
 
 export async function GET(
   _: Request,

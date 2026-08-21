@@ -10,7 +10,6 @@ import {
 import TopBar from '@/components/TopBar'
 import { getUser, clearUser } from '@/lib/auth'
 import type { AuthUser } from '@/lib/auth'
-
 const MENU = [
   { icon: Ticket,     label: 'Tiket Saya',          desc: 'Kelola tiket kamu',      href: '/tickets' },
   { icon: Bell,       label: 'Notifikasi',           desc: 'Riwayat notifikasi',     href: '/notifications' },
@@ -23,11 +22,25 @@ const MENU = [
 export default function ProfilePage() {
   const router = useRouter()
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [stats, setStats] = useState({ tiketAktif: 0, totalKonser: 0, notifikasi: 0 })
 
   useEffect(() => {
     const u = getUser()
     if (!u) { router.replace('/login'); return }
     setUser(u)
+    // Fetch stats nyata
+    Promise.all([
+      fetch(`/api/tickets?userId=${u.id}`).then(r => r.json()).catch(() => ({ data: [] })),
+      fetch(`/api/notifications?userId=${u.id}`).then(r => r.json()).catch(() => ({ data: [] })),
+    ]).then(([tikRes, notifRes]) => {
+      const tikets = Array.isArray(tikRes.data) ? tikRes.data : []
+      const notifs = Array.isArray(notifRes.data) ? notifRes.data : []
+      setStats({
+        tiketAktif:  tikets.filter((t: { status: string }) => t.status === 'aktif').length,
+        totalKonser: tikets.length,
+        notifikasi:  notifs.length,
+      })
+    })
   }, [router])
 
   const handleLogout = () => {
@@ -40,9 +53,9 @@ export default function ProfilePage() {
   const initials = user.nama.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
   const STATS = [
-    { num: 0,  label: 'Tiket Aktif' },
-    { num: 0,  label: 'Total Konser', divider: true },
-    { num: 0,  label: 'Notifikasi',   divider: true },
+    { num: stats.tiketAktif,  label: 'Tiket Aktif' },
+    { num: stats.totalKonser, label: 'Total Konser', divider: true },
+    { num: stats.notifikasi,  label: 'Notifikasi',   divider: true },
   ]
 
   return (

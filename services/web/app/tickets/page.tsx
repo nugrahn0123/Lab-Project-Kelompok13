@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import TopBar from '@/components/TopBar'
 import { myTickets, formatPrice } from '@/lib/dummy-data'
-import { fetchTickets, toEvent } from '@/lib/api'
+import { fetchTickets, fetchEvent, toEvent } from '@/lib/api'
 import { getUser } from '@/lib/auth'
 import { Ticket } from 'lucide-react'
 
@@ -31,19 +31,30 @@ export default function TicketsPage() {
   useEffect(() => {
     const user = getUser()
     if (!user) { router.replace('/login'); return }
-    fetchTickets(user.id).then(data => {
+    fetchTickets(user.id).then(async data => {
       if (data.length === 0) return
-      const mapped = data.map((t: Record<string, unknown>) => ({
-        id:          String(t.id),
-        eventId:     Number(t.event_id),
-        event:       toEvent({ id: t.event_id, nama: `Konser #${t.event_id}`, tanggal: new Date().toISOString(), venue: '', kota: 'Makassar', harga: 0, kursi_total: 1000, kursi_tersisa: 0 }),
-        quantity:    1,
-        totalPrice:  0,
-        status:      (t.status as string) === 'aktif' ? 'aktif' : t.status === 'dipakai' ? 'selesai' : 'dibatalkan',
-        invoiceNo:   String(t.kode_qr ?? t.id),
-        purchasedAt: String(t.dibuat_pada ?? ''),
-        qrCode:      String(t.kode_qr ?? ''),
+      // Fetch nama event real untuk setiap event_id unik
+      const uniqueIds = [...new Set(data.map((t: Record<string, unknown>) => Number(t.event_id)))]
+      const eventMap: Record<number, ReturnType<typeof toEvent>> = {}
+      await Promise.all(uniqueIds.map(async id => {
+        const e = await fetchEvent(id)
+        if (e) eventMap[id] = e
       }))
+      const mapped = data.map((t: Record<string, unknown>) => {
+        const eid = Number(t.event_id)
+        const ev = eventMap[eid] ?? toEvent({ id: eid, nama: `Konser #${eid}`, tanggal: new Date().toISOString(), venue: '', kota: 'Makassar', harga: Number(t.harga_satuan ?? 0), kursi_total: 1000, kursi_tersisa: 0 })
+        return {
+          id:          String(t.id),
+          eventId:     eid,
+          event:       ev,
+          quantity:    Number(t.qty ?? 1),
+          totalPrice:  Number(t.total_harga ?? 0),
+          status:      (t.status as string) === 'aktif' ? 'aktif' : t.status === 'dipakai' ? 'selesai' : 'dibatalkan',
+          invoiceNo:   String(t.kode_qr ?? t.id),
+          purchasedAt: String(t.dibuat_pada ?? ''),
+          qrCode:      String(t.kode_qr ?? ''),
+        }
+      })
       setList(mapped as typeof myTickets)
     })
   }, [router])

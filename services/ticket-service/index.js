@@ -264,8 +264,14 @@ app.get("/tickets", async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const offset = (page - 1) * limit;
     const q = userId
-      ? "SELECT id, pesanan_id, event_id, kode_qr, status, dibuat_pada FROM tikets WHERE user_id = $3 ORDER BY id LIMIT $1 OFFSET $2"
-      : "SELECT id, pesanan_id, event_id, kode_qr, status, dibuat_pada FROM tikets ORDER BY id LIMIT $1 OFFSET $2";
+      ? `SELECT t.id, t.pesanan_id, t.event_id, t.kode_qr, t.status, t.dibuat_pada,
+               p.qty, p.total_harga, p.harga_satuan
+         FROM tikets t LEFT JOIN pesanan p ON p.id = t.pesanan_id
+         WHERE t.user_id = $3 ORDER BY t.id DESC LIMIT $1 OFFSET $2`
+      : `SELECT t.id, t.pesanan_id, t.event_id, t.kode_qr, t.status, t.dibuat_pada,
+               p.qty, p.total_harga, p.harga_satuan
+         FROM tikets t LEFT JOIN pesanan p ON p.id = t.pesanan_id
+         ORDER BY t.id DESC LIMIT $1 OFFSET $2`;
     const params = userId ? [limit, offset, userId] : [limit, offset];
     const { rows } = await pool.query(q, params);
     const total = (await pool.query(
