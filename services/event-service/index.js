@@ -141,16 +141,6 @@ async function seed() {
     }
     // Reset sequence agar INSERT berikutnya tidak bentrok dengan id 1-54
     await pool.query("SELECT setval(pg_get_serial_sequence('events', 'id'), 54)");
-
-    // Seed user — user demo bisa login: demo@konser.id / demo123
-    await pool.query(`
-      INSERT INTO users (nama, email, telepon, password_hash) VALUES
-        ('Demo User',    'demo@konser.id',    '081234567890', '${hashPw("demo123")}'),
-        ('Budi Santoso', 'budi@example.com',  '082345678901', '${hashPw("budi123")}'),
-        ('Sari Dewi',    'sari@example.com',  '083456789012', '${hashPw("sari123")}')
-      ON CONFLICT (email) DO UPDATE SET
-        password_hash = EXCLUDED.password_hash
-    `);
     console.log("event-service: seed 54 konser Makassar selesai ✓");
   } catch (e) {
     console.warn("event-service: seed gagal:", e.message);

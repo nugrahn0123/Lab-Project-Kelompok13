@@ -114,9 +114,11 @@ export default function LoginPage() {
           Daftar Akun Baru
         </button>
 
-        {/* Demo hint */}
-        <p className="text-center text-xs text-wt-muted mt-2">
-          Akun demo: <span className="text-wt-accent">demo@konser.id</span> / <span className="text-wt-accent">demo123</span>
+        <p className="text-center text-xs text-wt-muted">
+          Belum punya akun?{' '}
+          <button onClick={() => router.push('/register')} className="text-wt-accent font-semibold">
+            Daftar sekarang
+          </button>
         </p>
       </motion.div>
     </div>
