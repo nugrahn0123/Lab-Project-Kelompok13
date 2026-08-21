@@ -2,18 +2,17 @@ const express = require("express");
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
-// Node.js 18+ Windows/Alpine: force IPv4 agar getaddrinfo tidak fail ke IPv6
-require("dns").setDefaultResultOrder("ipv4first");
+// Load .env dari root project jika DATABASE_URL belum di-set (lokal tanpa Docker)
+if (!process.env.DATABASE_URL) {
+  require("dotenv").config({ path: path.join(__dirname, "../../.env") });
+}
 
+// Set search_path via PostgreSQL startup option — tidak ada race condition
+const _dbUrl = new URL(process.env.DATABASE_URL);
+_dbUrl.searchParams.set('options', '-c search_path=payment_db,public');
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: _dbUrl.toString(),
   ssl: { rejectUnauthorized: false },
-});
-// Setiap koneksi baru gunakan schema payment_db (Neon: database bersama, schema per-service)
-pool.on('connect', client => {
-  client.query('SET search_path TO payment_db, public').catch(e =>
-    console.error('payment-service search_path error:', e.message)
-  );
 });
 const app = express();
 const PORT = process.env.PORT || 3003;

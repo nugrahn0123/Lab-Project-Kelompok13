@@ -1,0 +1,18 @@
+{
+  "name": "War Tiket Konser — Lab Mikro",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [3000, 8080],
+  "portsAttributes": {
+    "3000": { "label": "Web UI", "onAutoForward": "openBrowser" },
+    "8080": { "label": "API Gateway" }
+  },
+  "postCreateCommand": "echo 'Codespace siap! Buat .env lalu jalankan: docker compose up --build'",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-azuretools.vscode-docker", "humao.rest-client"]
+    }
+  }
+}

@@ -3,18 +3,17 @@ const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("redis");
-// Node.js 18+ Windows/Alpine: force IPv4 agar getaddrinfo tidak fail ke IPv6
-require("dns").setDefaultResultOrder("ipv4first");
+// Load .env dari root project jika DATABASE_URL belum di-set (lokal tanpa Docker)
+if (!process.env.DATABASE_URL) {
+  require("dotenv").config({ path: path.join(__dirname, "../../.env") });
+}
 
+// Set search_path via PostgreSQL startup option — tidak ada race condition
+const _dbUrl = new URL(process.env.DATABASE_URL);
+_dbUrl.searchParams.set('options', '-c search_path=notification_db,public');
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: _dbUrl.toString(),
   ssl: { rejectUnauthorized: false },
-});
-// Setiap koneksi baru gunakan schema notification_db (Neon: database bersama, schema per-service)
-pool.on('connect', client => {
-  client.query('SET search_path TO notification_db, public').catch(e =>
-    console.error('notification-service search_path error:', e.message)
-  );
 });
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -24,12 +23,15 @@ app.use(express.json());
 let redis = null;
 async function connectRedis() {
   try {
-    redis = createClient({ url: process.env.REDIS_URL || "redis://redis:6379" });
-    redis.on("error", (e) => console.error("Redis error:", e.message));
+    redis = createClient({
+      url: process.env.REDIS_URL || "redis://redis:6379",
+      socket: { reconnectStrategy: false }, // fail fast jika Redis tidak ada
+    });
+    redis.on("error", () => {}); // suppress retry errors
     await redis.connect();
     console.log("notification-service: Redis terhubung");
   } catch (e) {
-    console.warn("notification-service: Redis tidak tersedia:", e.message);
+    console.warn("notification-service: Redis tidak tersedia");
     redis = null;
   }
 }

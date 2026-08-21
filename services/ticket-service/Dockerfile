@@ -8,4 +8,4 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY . .
 EXPOSE 3002
-CMD ["node", "index.js"]
+CMD ["node", "--dns-result-order=ipv4first", "index.js"]
