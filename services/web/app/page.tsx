@@ -34,9 +34,14 @@ export default function HomePage() {
   }, [])
 
   const today      = new Date().toISOString().slice(0, 10)
-  const featured    = allEvents.filter(e => e.isHot)
-  const upcoming    = allEvents.filter(e => !e.isHot && e.dateRaw > today)
-  const list        = cat === 'Semua' ? allEvents : allEvents.filter(e => e.city === cat || e.genre === cat)
+  // Batas 30 hari ke depan untuk memisah "Semua Konser" vs "Akan Datang"
+  const nearCutoff = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const featured   = allEvents.filter(e => e.isHot)
+  // "Semua Konser": event dalam 30 hari ke depan, difilter by kategori
+  const nearEvents = allEvents.filter(e => e.dateRaw <= nearCutoff)
+  const list       = cat === 'Semua' ? nearEvents : nearEvents.filter(e => e.city === cat || e.genre === cat)
+  // "Akan Datang": event > 30 hari ke depan (tidak overlap dengan Semua Konser)
+  const upcoming   = allEvents.filter(e => e.dateRaw > nearCutoff)
 
   return (
     <div className="flex flex-col pb-28">

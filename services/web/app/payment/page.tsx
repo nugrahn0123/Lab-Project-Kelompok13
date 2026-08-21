@@ -59,7 +59,7 @@ function PaymentContent() {
       setLoading(false)
       return
     }
-    router.push(`/success?eventId=${event.id}&qty=${qty}&total=${total}&method=${method}&invoice=${payResult.nomorInvoice}`)
+    router.push(`/success?eventId=${event.id}&qty=${qty}&total=${total}&method=${method}&invoice=${payResult.nomorInvoice}&eventName=${encodeURIComponent(event.title)}`)
   }
 
   const rows = [

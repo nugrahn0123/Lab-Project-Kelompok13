@@ -4,34 +4,27 @@ import { Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check } from 'lucide-react'
-import { events as dummyEvents, formatPrice } from '@/lib/dummy-data'
+import { formatPrice } from '@/lib/dummy-data'
 
 const METHOD_LABELS: Record<string, string> = {
   transfer: 'Transfer Bank',
-  card:     'Kartu Kredit/Debit',
-  wallet:   'Dompet Digital',
-  qris:     'QRIS',
+  kartu:    'Kartu Kredit/Debit',
+  dompet:   'Dompet Digital',
 }
 
 function SuccessContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
-  const eventId  = parseInt(searchParams.get('eventId') ?? '1')
-  const qty      = parseInt(searchParams.get('qty')     ?? '1')
-  const total    = parseInt(searchParams.get('total')   ?? '0')
-  const method   = searchParams.get('method')           ?? 'transfer'
-  const invoice  = searchParams.get('invoice')          ?? (() => {
-    const d = new Date(); const p = (n: number) => String(n).padStart(2,'0')
-    return `INV-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(Math.floor(Math.random()*9999))}`
-  })()
-  const event    = dummyEvents.find(e => e.id === eventId)
-
-  if (!event) { router.push('/'); return null }
+  const qty       = parseInt(searchParams.get('qty')     ?? '1')
+  const total     = parseInt(searchParams.get('total')   ?? '0')
+  const method    = searchParams.get('method')           ?? 'transfer'
+  const invoice   = searchParams.get('invoice')          ?? `INV-${Date.now()}`
+  const eventName = searchParams.get('eventName')        ?? 'Konser'
 
   const rows = [
     { k: 'No. Invoice', v: invoice },
-    { k: 'Konser',      v: event.title },
+    { k: 'Konser',      v: eventName },
     { k: 'Jumlah',      v: `${qty} tiket` },
     { k: 'Total Bayar', v: formatPrice(total), accent: true },
     { k: 'Metode',      v: METHOD_LABELS[method] ?? method },
