@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///C:/Project%20Mandiri/War%20Tiket/app/template.tsx"],"sourcesContent":["'use client'\r\n\r\nimport { motion } from 'framer-motion'\r\n\r\nexport default function Template({ children }: { children: React.ReactNode }) {\r\n  return (\r\n    <motion.div\r\n      initial={{ opacity: 0, y: 10 }}\r\n      animate={{ opacity: 1, y: 0 }}\r\n      transition={{ duration: 0.22, ease: 'easeOut' }}\r\n    >\r\n      {children}\r\n    </motion.div>\r\n  )\r\n}\r\n"],"names":["Template","children","div","initial","opacity","y","animate","transition","duration","ease"],"mappings":";;;;;AAEA;AAFA;;;AAIe,SAASA,SAAS,EAAEC,QAAQ,EAAiC;IAC1E,qBACE,6LAAC,uMAAM,CAACC,GAAG;QACTC,SAAS;YAAEC,SAAS;YAAGC,GAAG;QAAG;QAC7BC,SAAS;YAAEF,SAAS;YAAGC,GAAG;QAAE;QAC5BE,YAAY;YAAEC,UAAU;YAAMC,MAAM;QAAU;kBAE7CR;;;;;;AAGP;KAVwBD"}}]
+}

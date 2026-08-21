@@ -1,11 +1,8 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
-  // Untuk Capacitor, ganti output ke 'export':
-  // output: 'export',
-  // trailingSlash: true,
-  // images: { unoptimized: true },
+  // standalone untuk Docker/Codespaces, undefined untuk Vercel
+  output: process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
 }
 
 export default nextConfig
