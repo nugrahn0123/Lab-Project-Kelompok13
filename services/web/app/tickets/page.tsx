@@ -25,7 +25,8 @@ const STATUS_CFG: Record<Status, { label: string; text: string; bg: string }> = 
 
 export default function TicketsPage() {
   const [tab, setTab] = useState<Status>('aktif')
-  const [list, setList] = useState(myTickets)
+  const [list, setList] = useState<typeof myTickets>([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export default function TicketsPage() {
         }
       })
       setList(mapped as typeof myTickets)
-    })
+    }).finally(() => setLoading(false))
   }, [router])
 
   const filtered = list.filter(t => t.status === tab)
@@ -91,6 +92,11 @@ export default function TicketsPage() {
         </div>
 
         {/* Ticket list */}
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="w-8 h-8 border-2 border-wt-border border-t-wt-accent rounded-full animate-spin" />
+          </div>
+        ) : (
         <AnimatePresence mode="wait">
           {filtered.length === 0 ? (            <motion.div
               key="empty"
@@ -182,6 +188,7 @@ export default function TicketsPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </div>
     </div>
   )

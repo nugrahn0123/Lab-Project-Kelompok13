@@ -321,6 +321,25 @@ app.post("/users", async (req, res) => {
   }
 });
 
+// POST /users/change-password — ganti password user
+app.post("/users/change-password", async (req, res) => {
+  const { email, passwordHash } = req.body;
+  if (!email || !passwordHash) {
+    return res.status(400).json(galat("DATA_TIDAK_LENGKAP", "email dan passwordHash wajib"));
+  }
+  try {
+    const { rowCount } = await pool.query(
+      "UPDATE users SET password_hash = $1 WHERE email = $2",
+      [passwordHash, email]
+    );
+    if (rowCount === 0) return res.status(404).json(galat("USER_TIDAK_ADA", "Email tidak ditemukan"));
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json(galat("SERVER_ERROR", "Terjadi kesalahan server"));
+  }
+});
+
 // POST /login — autentikasi pengguna
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
