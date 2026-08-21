@@ -13,10 +13,10 @@ import type { AuthUser } from '@/lib/auth'
 
 const MENU = [
   { icon: Ticket,     label: 'Tiket Saya',          desc: 'Kelola tiket kamu',      href: '/tickets' },
-  { icon: Bell,       label: 'Notifikasi',           desc: 'Riwayat notifikasi',     href: '#' },
-  { icon: CreditCard, label: 'Riwayat Pembayaran',   desc: 'Semua transaksi',        href: '#' },
-  { icon: User,       label: 'Edit Profil',          desc: 'Perbarui info akunmu',   href: '#' },
-  { icon: Shield,     label: 'Keamanan',             desc: 'Password & privasi',     href: '#' },
+  { icon: Bell,       label: 'Notifikasi',           desc: 'Riwayat notifikasi',     href: '/notifications' },
+  { icon: CreditCard, label: 'Riwayat Pembayaran',   desc: 'Semua transaksi',        href: '/tickets' },
+  { icon: User,       label: 'Edit Profil',          desc: 'Perbarui info akunmu',   href: '/profile/edit' },
+  { icon: Shield,     label: 'Keamanan',             desc: 'Ganti password',         href: '/profile/security' },
   { icon: Settings,   label: 'Pengaturan',           desc: 'Preferensi aplikasi',    href: '#' },
 ]
 

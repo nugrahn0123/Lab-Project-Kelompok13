@@ -65,6 +65,7 @@ export default function HomePage() {
             <motion.button
               whileTap={{ scale: 0.85 }}
               className="w-9 h-9 rounded-full bg-wt-card border border-wt-border flex items-center justify-center"
+              onClick={() => router.push('/notifications')}
             >
               <Bell size={16} className="text-wt-muted" />
             </motion.button>
