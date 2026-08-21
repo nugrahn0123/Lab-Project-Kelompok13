@@ -11,7 +11,17 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'WarTiket — Konser Indonesia',
-  description: 'Beli tiket konser dengan mudah dan aman',
+  description: 'Beli tiket konser Indonesia dengan mudah, cepat, dan aman',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'WarTiket',
+  },
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: '/icons/icon-192.png',
+  },
 }
 
 export const viewport: Viewport = {
@@ -19,7 +29,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0a0a0f',
+  themeColor: '#f97316',
 }
 
 export default function RootLayout({

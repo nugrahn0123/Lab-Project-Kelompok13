@@ -1,0 +1,47 @@
+{
+  "name": "WarTiket — Konser Indonesia",
+  "short_name": "WarTiket",
+  "description": "Beli tiket konser Indonesia dengan mudah, cepat, dan aman",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#f97316",
+  "orientation": "portrait",
+  "lang": "id",
+  "categories": ["entertainment", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Beranda WarTiket"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Cari Konser",
+      "url": "/explore",
+      "description": "Jelajahi semua konser"
+    },
+    {
+      "name": "Tiket Saya",
+      "url": "/tickets",
+      "description": "Lihat tiket aktif"
+    }
+  ]
+}
