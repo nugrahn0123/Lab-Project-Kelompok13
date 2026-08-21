@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Search, Sliders, Zap, List, Bell, User } from 'lucide-react'
+import { Search, Sliders, Zap, List, Bell, User, Clock } from 'lucide-react'
 import FeaturedCard from '@/components/FeaturedCard'
 import EventCard from '@/components/EventCard'
-import { events as dummyEvents } from '@/lib/dummy-data'
 import { fetchEvents } from '@/lib/api'
 import type { Event } from '@/lib/dummy-data'
 
@@ -34,8 +33,10 @@ export default function HomePage() {
     }).finally(() => setLoading(false))
   }, [])
 
-  const featured = allEvents.filter(e => e.isHot)
-  const list     = cat === 'Semua' ? allEvents : allEvents.filter(e => e.city === cat || e.genre === cat)
+  const today      = new Date().toISOString().slice(0, 10)
+  const featured    = allEvents.filter(e => e.isHot)
+  const upcoming    = allEvents.filter(e => !e.isHot && e.dateRaw > today)
+  const list        = cat === 'Semua' ? allEvents : allEvents.filter(e => e.city === cat || e.genre === cat)
 
   return (
     <div className="flex flex-col pb-28">
@@ -143,7 +144,8 @@ export default function HomePage() {
           <List size={15} className="text-wt-muted" />
           Semua Konser
         </span>
-        <span className="text-[12px] text-wt-muted font-medium">{list.length} konser</span>      </div>
+        <span className="text-[12px] text-wt-muted font-medium">{list.length} konser</span>
+      </div>
 
       <div className="flex flex-col gap-2.5 px-5">
         {list.map((event, i) => (
@@ -157,6 +159,31 @@ export default function HomePage() {
           </motion.div>
         ))}
       </div>
+
+      {/* ── Akan Datang ── */}
+      {upcoming.length > 0 && cat === 'Semua' && (
+        <>
+          <div className="flex justify-between items-center px-5 mt-6 mb-3">
+            <span className="text-[15px] font-black text-wt-text tracking-tight flex items-center gap-1.5">
+              <Clock size={15} className="text-wt-accent2" />
+              Akan Datang
+            </span>
+            <span className="text-[12px] text-wt-muted font-medium">{upcoming.length} konser</span>
+          </div>
+          <div className="flex flex-col gap-2.5 px-5">
+            {upcoming.map((event, i) => (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 + 0.05, duration: 0.25 }}
+              >
+                <EventCard event={event} onClick={() => router.push(`/event/${event.id}`)} />
+              </motion.div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

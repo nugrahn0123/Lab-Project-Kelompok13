@@ -84,7 +84,7 @@ export async function lockSeats(
     })
     const json = await r.json()
     if (!r.ok) return { error: json.error ?? { code: 'GAGAL', message: 'Gagal mengunci kursi' } }
-    return { pesananId: json.id }
+    return { pesananId: json.pesananId ?? json.id }
   } catch {
     return { error: { code: 'NETWORK_ERROR', message: 'Tidak dapat terhubung ke server' } }
   }
