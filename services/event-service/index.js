@@ -65,7 +65,11 @@ async function initSchema() {
 async function seed() {
   try {
     const { rows: existing } = await pool.query("SELECT COUNT(*)::int AS n FROM events");
-    if (existing[0].n > 0) return; // sudah ada data, lewati
+    if (existing[0].n > 0) {
+      // Data sudah ada — lewati INSERT tapi tetap jalankan patch tanggal
+      await patchEventDates();
+      return;
+    }
 
     // [id, nama, tanggal, venue, harga, kursi_tersisa, status]
     const events = [
@@ -145,10 +149,36 @@ async function seed() {
     }
     // Reset sequence agar INSERT berikutnya tidak bentrok dengan id 1-54
     await pool.query("SELECT setval(pg_get_serial_sequence('events', 'id'), 54)");
+    await patchEventDates();
     console.log("event-service: seed 54 konser Makassar selesai ✓");
   } catch (e) {
     console.warn("event-service: seed gagal:", e.message);
   }
+}
+
+// Patch tanggal & status event agar selalu relevan — SELALU jalan di setiap restart
+async function patchEventDates() {
+  // [id, tanggal_baru, status_baru, sisa_jika_tadinya_selesai]
+  const patches = [
+    [21, "2026-08-22", "aktif", 5],
+    [22, "2026-08-22", "aktif", 3],
+    [23, "2026-08-23", "aktif", 8],
+    [24, "2026-08-23", "aktif", 4],
+    [25, "2026-08-24", "aktif", 2],
+    [26, "2026-08-24", "aktif", 25],
+    [27, "2026-08-25", "aktif", 1],
+    [28, "2026-08-26", "aktif", 40],
+    [29, "2026-08-28", "aktif", 6],
+  ];
+  for (const [id, tanggal, status, sisa] of patches) {
+    await pool.query(
+      `UPDATE events SET tanggal = $1, status = $2,
+         kursi_tersisa = CASE WHEN kursi_tersisa = 0 THEN $3 ELSE kursi_tersisa END
+       WHERE id = $4`,
+      [tanggal, status, sisa, id]
+    );
+  }
+  console.log("event-service: patch tanggal selesai ✓");
 }
 
 // GET /events — daftar konser berpaginasi dengan keyset untuk mobile (Lapisan 3)
