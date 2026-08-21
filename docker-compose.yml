@@ -30,6 +30,13 @@ services:
       timeout: 3s
       retries: 5
 
+  web:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./services/web:/usr/share/nginx/html:ro
+
   gateway:
     image: nginx:alpine
     ports:
