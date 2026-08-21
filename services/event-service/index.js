@@ -109,6 +109,31 @@ app.get("/events", async (req, res) => {
   }
 });
 
+// GET /events/:id — detail satu konser (dibutuhkan oleh web/mobile)
+app.get("/events/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!Number.isInteger(id)) {
+    return res.status(400).json(galat("INPUT_TIDAK_VALID", "id harus bilangan bulat"));
+  }
+  try {
+    const cacheKey = `event:${id}`;
+    if (redis) {
+      const cached = await redis.get(cacheKey);
+      if (cached) return res.json(JSON.parse(cached));
+    }
+    const { rows } = await pool.query(
+      "SELECT id, nama, tanggal, venue, kota, harga, kursi_total, kursi_tersisa, status FROM events WHERE id = $1",
+      [id]
+    );
+    if (!rows.length) return res.status(404).json(galat("EVENT_TIDAK_ADA", "Event tidak ditemukan"));
+    if (redis) await redis.set(cacheKey, JSON.stringify(rows[0]), { EX: 30 });
+    res.json(rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json(galat("SERVER_ERROR", "Terjadi kesalahan server"));
+  }
+});
+
 // POST /events/:id/lock-internal — dipanggil ticket-service untuk kurangi kursi atomik
 // Endpoint internal: tidak diekspos ke nginx/publik
 app.post("/events/:id/lock-internal", async (req, res) => {
