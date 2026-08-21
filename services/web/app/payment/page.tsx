@@ -3,7 +3,7 @@
 import { useState, Suspense, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Landmark, CreditCard, Wallet, QrCode, AlertCircle } from 'lucide-react'
+import { Landmark, CreditCard, Wallet, AlertCircle } from 'lucide-react'
 import TopBar from '@/components/TopBar'
 import { events as dummyEvents, formatPrice } from '@/lib/dummy-data'
 import { fetchEvent, lockSeats, processPayment } from '@/lib/api'
@@ -13,7 +13,6 @@ const METHODS = [
   { id: 'transfer', label: 'Transfer', Icon: Landmark   },
   { id: 'kartu',    label: 'Kartu',    Icon: CreditCard },
   { id: 'dompet',   label: 'Dompet',   Icon: Wallet     },
-  { id: 'qris',     label: 'QRIS',     Icon: QrCode     },
 ]
 
 function PaymentContent() {
