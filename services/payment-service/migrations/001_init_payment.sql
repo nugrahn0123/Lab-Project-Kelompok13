@@ -1,5 +1,9 @@
 -- migrations/001_init_payment.sql
 -- Schema milik payment-service — jalan saat initSchema() dipanggil sebelum listen
+-- Neon: satu database, schema terpisah per service
+CREATE SCHEMA IF NOT EXISTS payment_db;
+SET search_path = payment_db, public;
+
 BEGIN;
 
 -- Pembayaran: satu pembayaran untuk satu pesanan

@@ -1,6 +1,8 @@
 -- migrations/002_tambah_idempotency_key.sql
 -- Lapisan 3 (Mobile): kolom idempotency_key sudah ada di tabel pesanan (001)
 -- Migrasi ini menambahkan indeks tambahan untuk performa lookup
+SET search_path = ticket_db, public;
+
 BEGIN;
 
 -- Partial unique index: hanya baris yang punya idempotency_key (tidak null) yang dicek unik

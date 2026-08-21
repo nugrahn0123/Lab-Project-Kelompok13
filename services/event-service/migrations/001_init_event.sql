@@ -1,5 +1,9 @@
 -- migrations/001_init_event.sql
 -- Schema milik event-service — jalan saat initSchema() dipanggil sebelum listen
+-- Neon: satu database, schema terpisah per service
+CREATE SCHEMA IF NOT EXISTS event_db;
+SET search_path = event_db, public;
+
 BEGIN;
 
 -- Pengguna yang terdaftar di platform

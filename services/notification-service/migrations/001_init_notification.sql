@@ -1,5 +1,9 @@
 -- migrations/001_init_notification.sql
 -- Schema milik notification-service — jalan saat initSchema() dipanggil sebelum listen
+-- Neon: satu database, schema terpisah per service
+CREATE SCHEMA IF NOT EXISTS notification_db;
+SET search_path = notification_db, public;
+
 BEGIN;
 
 -- Log semua notifikasi yang dikirim ke pengguna

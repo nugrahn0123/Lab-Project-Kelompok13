@@ -1,5 +1,7 @@
 -- migrations/002_tambah_indeks_movements.sql
 -- Maju-saja: tabel riwayat pergerakan kursi + indeks untuk EXPLAIN ANALYZE
+SET search_path = event_db, public;
+
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS seat_movements (

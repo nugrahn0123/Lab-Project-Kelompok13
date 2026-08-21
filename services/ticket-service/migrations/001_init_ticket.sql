@@ -1,5 +1,9 @@
 -- migrations/001_init_ticket.sql
 -- Schema milik ticket-service — jalan saat initSchema() dipanggil sebelum listen
+-- Neon: satu database, schema terpisah per service
+CREATE SCHEMA IF NOT EXISTS ticket_db;
+SET search_path = ticket_db, public;
+
 BEGIN;
 
 -- Pesanan: satu pesanan bisa berisi beberapa tiket (qty > 1)

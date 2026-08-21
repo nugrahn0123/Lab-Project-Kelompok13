@@ -3,8 +3,19 @@ const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("redis");
+// Node.js 18+ Windows/Alpine: force IPv4 agar getaddrinfo tidak fail ke IPv6
+require("dns").setDefaultResultOrder("ipv4first");
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+// Setiap koneksi baru gunakan schema event_db (Neon: database bersama, schema per-service)
+pool.on('connect', client => {
+  client.query('SET search_path TO event_db, public').catch(e =>
+    console.error('event-service search_path error:', e.message)
+  );
+});
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -37,29 +48,98 @@ async function initSchema() {
   }
 }
 
-// Seed data contoh — dibungkus try/catch agar gagal seed tidak mematikan layanan
+// Seed 54 konser realistis Makassar — data nyata War Tiket Kelompok 13
 async function seed() {
   try {
-    const { rowCount } = await pool.query("SELECT 1 FROM events LIMIT 1");
-    if (rowCount > 0) return; // sudah ada data, lewati
-    await pool.query(`
-      INSERT INTO events (nama, tanggal, venue, kota, harga, kursi_total, kursi_tersisa) VALUES
-        ('Konser Spektakuler A', '2026-09-01', 'Gelora Bung Karno', 'Jakarta',  250000, 500, 500),
-        ('Festival Musik B',     '2026-09-15', 'Balai Kartini',     'Jakarta',  150000, 200, 200),
-        ('Gala Night C',         '2026-10-05', 'ICE BSD',           'Tangerang',200000, 100, 100),
-        ('Rock Fest D',          '2026-10-20', 'Lapangan Banteng',  'Jakarta',  175000, 800, 800)
-    `);
-    // Seed satu user contoh
+    const { rows: existing } = await pool.query("SELECT COUNT(*)::int AS n FROM events");
+    if (existing[0].n > 0) return; // sudah ada data, lewati
+
+    // [id, nama, tanggal, venue, harga, kursi_tersisa, status]
+    const events = [
+      [1,  "Dewa 19 Reunion Tour — Makassar",                    "2025-03-15", "Celebes Convention Center (CCC), Makassar", 350000, 0,   "selesai"],
+      [2,  "Westlife The Wild Dreams Tour — Makassar",           "2025-05-10", "Lapangan Karebosi, Makassar",                850000, 0,   "selesai"],
+      [3,  "Tulus — Manusia Tour Makassar",                      "2025-07-21", "Trans Studio Makassar",                      450000, 0,   "selesai"],
+      [4,  "Raisa — Batas Imaji Concert",                        "2025-09-05", "Celebes Convention Center (CCC), Makassar", 550000, 0,   "selesai"],
+      [5,  "Iwan Fals & OI — Konser Anak Negeri",                "2025-10-17", "Lapangan Karebosi, Makassar",                150000, 0,   "selesai"],
+      [6,  "Noah — Keterpisahan Tour",                           "2025-11-08", "Gedung Serbaguna Phinisi, Makassar",         300000, 0,   "selesai"],
+      [7,  "Hindia — Aku Bukan Filantropi Live",                 "2025-11-22", "Pantai Losari Outdoor Stage, Makassar",      200000, 0,   "selesai"],
+      [8,  "Bernadya — Salam Perpisahan Tour",                   "2025-12-06", "Trans Studio Makassar",                      375000, 0,   "selesai"],
+      [9,  "Sheila On 7 — Tunggu Aku di Jakarta (Makassar Leg)", "2025-12-20", "Celebes Convention Center (CCC), Makassar", 400000, 0,   "selesai"],
+      [10, "New Year Eve Concert — Makassar 2026",               "2025-12-31", "Lapangan Karebosi, Makassar",                125000, 0,   "selesai"],
+      [11, "Kunto Aji — Mantra Mantra Tour Makassar",            "2026-01-17", "Trans Studio Makassar",                      220000, 0,   "selesai"],
+      [12, "Isyana Sarasvati — Lexicon Live",                    "2026-02-14", "Gedung Serbaguna Phinisi, Makassar",         285000, 0,   "selesai"],
+      [13, "Afgan — The Road Tour Makassar",                     "2026-02-28", "Celebes Convention Center (CCC), Makassar", 395000, 0,   "selesai"],
+      [14, "Weird Genius — Lathi Live Experience",               "2026-03-14", "Trans Studio Makassar",                      250000, 0,   "selesai"],
+      [15, "Ariel NOAH Solo Concert",                            "2026-03-28", "Lapangan Karebosi, Makassar",                350000, 0,   "selesai"],
+      [16, "Raisa — Hari Ini Tour Makassar",                     "2026-04-11", "Celebes Convention Center (CCC), Makassar", 475000, 0,   "selesai"],
+      [17, "Mocca — Friends Tour Makassar",                      "2026-04-25", "Trans Studio Makassar",                      165000, 0,   "selesai"],
+      [18, "Kahitna — Cerita Cinta Tour",                        "2026-05-09", "Celebes Convention Center (CCC), Makassar", 420000, 0,   "selesai"],
+      [19, "Payung Teduh — Kucari Kamu Tour",                    "2026-05-23", "Gedung Serbaguna Phinisi, Makassar",         215000, 0,   "selesai"],
+      [20, "Rizky Febian — Cuek Tour Makassar",                  "2026-06-06", "Trans Studio Makassar",                      315000, 0,   "selesai"],
+      [21, "Sal Priadi — Gajah Live Makassar",                   "2026-06-20", "Pantai Losari Outdoor Stage, Makassar",      230000, 0,   "selesai"],
+      [22, "Lyodra — Bila Tour Makassar",                        "2026-07-04", "Celebes Convention Center (CCC), Makassar", 275000, 0,   "selesai"],
+      [23, "Gilga Sahid — Lamunan Tour Makassar",                "2026-07-18", "Lapangan Karebosi, Makassar",                135000, 0,   "selesai"],
+      // ── Agustus 2026 — war tiket aktif (kursi hampir habis)
+      [24, "Pamungkas — To The Bone Live",                       "2026-08-22", "Trans Studio Makassar",                      275000, 4,   "aktif"],
+      [25, "Maudy Ayunda — Perahu Kertas Anniversary Concert",   "2026-08-29", "Celebes Convention Center (CCC), Makassar", 385000, 2,   "aktif"],
+      // ── September – Desember 2026
+      [26, "Yura Yunita — Merakit Concert Makassar",             "2026-09-05", "Pantai Losari Outdoor Stage, Makassar",      250000, 88,  "aktif"],
+      [27, "Maliq & D'Essentials — Wavelength Tour",             "2026-09-12", "Trans Studio Makassar",                      325000, 7,   "aktif"],
+      [28, "Nadin Amizah — Amin Paling Serius Tour",             "2026-09-19", "Gedung Serbaguna Phinisi, Makassar",         295000, 35,  "aktif"],
+      [29, "Fourtwnty — Zona Nyaman Live Makassar",              "2026-09-26", "Pantai Losari Outdoor Stage, Makassar",      180000, 200, "aktif"],
+      [30, "Nadhif Basalamah — Hanya Manusia Live",              "2026-10-03", "Celebes Convention Center (CCC), Makassar", 245000, 9,   "aktif"],
+      [31, "Rendy Pandugo — My Way Tour",                        "2026-10-10", "Gedung Serbaguna Phinisi, Makassar",         225000, 55,  "aktif"],
+      [32, "Stars and Rabbit — Live Makassar",                   "2026-10-17", "Pantai Losari Outdoor Stage, Makassar",      160000, 130, "aktif"],
+      [33, "Juicy Luicy — Tanpa Tergesa Live",                   "2026-10-24", "Trans Studio Makassar",                      210000, 23,  "aktif"],
+      [34, "Fiersa Besari — Garis Waktu Tour",                   "2026-10-31", "Lapangan Karebosi, Makassar",                120000, 400, "aktif"],
+      [35, "Bunga Citra Lestari — Cinta Sejati Tour",            "2026-11-07", "Celebes Convention Center (CCC), Makassar", 465000, 1,   "aktif"],
+      [36, "Ardhito Pramono — Bitterlove Live Makassar",         "2026-11-14", "Gedung Serbaguna Phinisi, Makassar",         205000, 62,  "aktif"],
+      [37, "Danilla — Peradaban Tour",                           "2026-11-21", "Pantai Losari Outdoor Stage, Makassar",      170000, 145, "aktif"],
+      [38, "Tipe-X — Ska Reggae Reunion Makassar",               "2026-11-28", "Trans Studio Makassar",                      175000, 90,  "aktif"],
+      [39, "Endah N Rhesa — Roughly Happy Live",                 "2026-12-05", "Pantai Losari Outdoor Stage, Makassar",      150000, 180, "aktif"],
+      [40, "Indonesian Idol Grand Concert — Makassar",           "2026-12-12", "Lapangan Karebosi, Makassar",                100000, 750, "aktif"],
+      [41, "Pee Wee Gaskins — Dark Horses Tour Makassar",        "2026-12-19", "Gedung Serbaguna Phinisi, Makassar",         145000, 200, "aktif"],
+      [42, "New Year Eve Concert — Makassar 2027",               "2026-12-31", "Lapangan Karebosi, Makassar",                150000, 600, "aktif"],
+      // ── 2027
+      [43, "Tulus — Aku Bukan Filantropi Tour 2027",             "2027-01-17", "Celebes Convention Center (CCC), Makassar", 500000, 300, "aktif"],
+      [44, "HiVi! — Satu-Satunya Tour 2027",                     "2027-01-31", "Trans Studio Makassar",                      195000, 250, "aktif"],
+      [45, "Elephant Kind — Beautiful Trance Tour",              "2027-02-14", "Gedung Serbaguna Phinisi, Makassar",         185000, 180, "aktif"],
+      [46, "Hindia — Live Makassar 2027",                        "2027-02-28", "Pantai Losari Outdoor Stage, Makassar",      220000, 320, "aktif"],
+      [47, "Bernadya — World Tour Makassar Stop",                "2027-03-14", "Celebes Convention Center (CCC), Makassar", 425000, 150, "aktif"],
+      [48, "Feast — Beberapa Orang Memaafkan Live 2027",         "2027-03-28", "Trans Studio Makassar",                      140000, 280, "aktif"],
+      [49, "Sheila On 7 — 30th Anniversary Tour Makassar",       "2027-04-10", "Lapangan Karebosi, Makassar",                450000, 500, "aktif"],
+      [50, "White Shoes & The Couples Company — Live 2027",      "2027-04-24", "Gedung Serbaguna Phinisi, Makassar",         190000, 210, "aktif"],
+      [51, "Pamungkas — World Tour 2027 Makassar",               "2027-05-08", "Celebes Convention Center (CCC), Makassar", 350000, 175, "aktif"],
+      [52, "Kunto Aji — Live Makassar 2027",                     "2027-05-22", "Trans Studio Makassar",                      240000, 300, "aktif"],
+      [53, "Ariel NOAH — Konser Spesial 2027",                   "2027-06-05", "Lapangan Karebosi, Makassar",                380000, 420, "aktif"],
+      [54, "Raisa — Aku Bukan Milikmu Tour 2027",                "2027-06-19", "Celebes Convention Center (CCC), Makassar", 520000, 200, "aktif"],
+    ];
+
+    for (const [id, nama, tanggal, venue, harga, sisa, status] of events) {
+      // kursi_total: sold-out → 1000, aktif → max(sisa+300, 1000) agar constraint terpenuhi
+      const kursiTotal = sisa === 0 ? 1000 : Math.max(sisa + 300, 1000);
+      await pool.query(
+        `INSERT INTO events (id, nama, tanggal, venue, kota, harga, kursi_total, kursi_tersisa, status)
+         OVERRIDING SYSTEM VALUE
+         VALUES ($1, $2, $3, $4, 'Makassar', $5, $6, $7, $8)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, nama, tanggal, venue, harga, kursiTotal, sisa, status]
+      );
+    }
+    // Reset sequence agar INSERT berikutnya tidak bentrok dengan id 1-54
+    await pool.query("SELECT setval(pg_get_serial_sequence('events', 'id'), 54)");
+
+    // Seed user — id=1 dipake di frontend sebagai demo user
     await pool.query(`
       INSERT INTO users (nama, email, telepon) VALUES
-        ('Budi Santoso',  'budi@example.com',  '081234567890'),
-        ('Sari Dewi',     'sari@example.com',  '082345678901'),
-        ('Ahmad Fauzi',   'ahmad@example.com', '083456789012')
+        ('Demo User',    'demo@konser.id',    '081234567890'),
+        ('Budi Santoso', 'budi@example.com',  '082345678901'),
+        ('Sari Dewi',    'sari@example.com',  '083456789012')
       ON CONFLICT (email) DO NOTHING
     `);
-    console.log("event-service: seed selesai");
+    console.log("event-service: seed 54 konser Makassar selesai ✓");
   } catch (e) {
-    console.warn("event-service: seed gagal (data mungkin sudah ada):", e.message);
+    console.warn("event-service: seed gagal:", e.message);
   }
 }
 

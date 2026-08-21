@@ -4,8 +4,19 @@ const fs = require("fs");
 const path = require("path");
 const { createClient } = require("redis");
 const http = require("http");
+// Node.js 18+ Windows/Alpine: force IPv4 agar getaddrinfo tidak fail ke IPv6
+require("dns").setDefaultResultOrder("ipv4first");
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+// Setiap koneksi baru gunakan schema ticket_db (Neon: database bersama, schema per-service)
+pool.on('connect', client => {
+  client.query('SET search_path TO ticket_db, public').catch(e =>
+    console.error('ticket-service search_path error:', e.message)
+  );
+});
 const app = express();
 const PORT = process.env.PORT || 3002;
 //okkk
