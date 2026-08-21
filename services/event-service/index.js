@@ -48,12 +48,16 @@ async function initSchema() {
   const client = await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock(1001)');
+    // Pastikan schema ada dan search_path benar SEBELUM migration
+    await client.query('CREATE SCHEMA IF NOT EXISTS event_db');
+    await client.query('SET search_path TO event_db, public');
     const migrDir = path.join(__dirname, "migrations");
     const files = fs.readdirSync(migrDir).filter(f => f.endsWith(".sql")).sort();
     for (const file of files) {
       const sql = fs.readFileSync(path.join(migrDir, file), "utf8");
       await client.query(sql);
       console.log(`event-service: migrasi ${file} selesai`);
+    }
     }
   } finally {
     await client.query('SELECT pg_advisory_unlock(1001)');
