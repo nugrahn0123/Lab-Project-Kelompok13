@@ -23,16 +23,15 @@ export default function BottomNav() {
       className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50"
       style={{ width: 'calc(100% - 32px)', maxWidth: 398 }}
     >
-      {/* Liquid glass pill */}
+      {/* Liquid glass pill — iOS style */}
       <div
         className="flex items-center rounded-[32px] px-2 py-2"
         style={{
-          background: 'rgba(18, 18, 28, 0.72)',
-          backdropFilter: 'blur(28px)',
-          WebkitBackdropFilter: 'blur(28px)',
-          border: '1px solid rgba(255, 255, 255, 0.10)',
-          boxShadow:
-            '0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.08) inset',
+          background: 'rgba(255, 255, 255, 0.07)',
+          backdropFilter: 'saturate(180%) blur(40px)',
+          WebkitBackdropFilter: 'saturate(180%) blur(40px)',
+          border: '1px solid rgba(255, 255, 255, 0.13)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.09) inset',
         }}
       >
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
