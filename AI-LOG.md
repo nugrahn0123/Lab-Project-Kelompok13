@@ -347,3 +347,166 @@ Format tiap entri: **tanggal · peran · prompt yang dipakai · hasil · penilai
 - Semua output Copilot **diverifikasi** sebelum di-commit (Swagger Editor, review manual struktur folder).
 - Copilot dipakai untuk **scaffold awal** — logika bisnis dan implementasi database tetap dikerjakan tim.
 - Tidak ada kredensial, password, atau data sensitif yang dimasukkan ke prompt.
+
+---
+
+## Sesi 3 — 2026-08-21 · DevOps Engineer · Lapisan 2 — Scalable Systems
+
+### 1. Optimasi Dockerfile dengan `npm ci` dan Lock Files
+
+**Prompt ke Copilot:**
+> "Periksa apakah Dockerfile sudah menggunakan best practice: COPY package*.json sebelum COPY . . dan pakai npm ci daripada npm install?"
+
+**Hasil yang digenerate:**
+- Copilot merekomendasikan `npm ci --omit=dev` untuk build reproducible dan cepat.
+- Diperbarui semua 4 Dockerfile (event, ticket, payment, notification).
+
+**Implementasi:**
+1. Ubah `npm install` → `npm ci --omit=dev` di semua Dockerfile.
+2. Generate `package-lock.json` untuk setiap service: `npm install --package-lock-only`.
+3. Verifikasi order: `COPY package*.json ./` sebelum `COPY . .` — jadi perubahan kode tidak picu ulang npm install.
+
+**Penilaian kritis:**
+- Build time: **2.2 detik** vs sebelumnya ~13 detik — keuntungan cache layer.
+- Lock files committed ke repo — memastikan versi dependency konsisten di semua environment.
+- `--omit=dev` menghemat ukuran image, hanya production dependencies.
+
+---
+
+### 2. Konfigurasi Nginx Load Balancer dengan `least_conn`
+
+**Prompt ke Copilot:**
+> "Buatkan nginx.conf untuk proxy_pass ke 4 upstream (event, ticket, payment, notification) dengan load balancing least_conn, dan tambahkan timeout serta X-Request-Id header."
+
+**Hasil yang digenerate:**
+- `nginx.conf` dengan 4 upstream cluster, masing-masing pakai `least_conn` (round-robin based on connection count).
+- Location block `/events`, `/tickets`, `/payments`, `/notifications`.
+- `proxy_set_header X-Request-Id $request_id` untuk request tracing.
+- Timeout: `proxy_connect_timeout 5s`, `proxy_send_timeout 10s`, `proxy_read_timeout 10s`.
+
+**Penilaian kritis:**
+- **`least_conn` vs round-robin:** Lebih adil saat request load berbeda (misal 10% gateway request slow). Round-robin buta, least_conn lihat koneksi aktif.
+- **X-Request-Id:** Memudahkan debugging — tiap request punya ID unik di logs.
+- **Timeout:** Prevent hanging request — kalau backend lambat, gateway cutoff setelah 10s.
+
+---
+
+### 3. Konfigurasi Multi-Replica di docker-compose
+
+**Implementasi:**
+- Ubah `ports: ["3001:3001"]` → `expose: ["3001"]` untuk 4 service (tidak expose langsung ke host, hanya ke gateway).
+- Tambah `deploy: replicas: 3` ke event, ticket, payment, notification.
+- Nginx di gateway diarahkan ke `upstream event_cluster { server event-service:3001; }` — Docker Compose DNS resolver otomatis load balance ke 3 instance.
+
+**Hasil:**
+```
+$ docker compose ps | grep event-service
+lab-project-kelompok13-event-service-1
+lab-project-kelompok13-event-service-2
+lab-project-kelompok13-event-service-3
+```
+
+**Penilaian kritis:**
+- Docker Compose DNS resolve `event-service` ke **semua 3 instance** (round-robin DNS).
+- Nginx **least_conn** pada layer 2 (application load balancing).
+- Kombinasi kedua = **hybrid load balancing** — DNS round-robin + least_conn connection aware.
+
+---
+
+### 4. Load Testing dengan Autocannon — Baseline Metrics
+
+**Prompt ke Copilot:**
+> "Buatkan script bash loadtest.sh yang menjalankan autocannon dengan 50 concurrent connections, 20 detik, 10 pipelining untuk endpoint POST /payments dan POST /notifications di gateway."
+
+**Hasil yang digenerate:**
+- Script `loadtest.sh` yang run dua test secara serial.
+- Simpan output ke `loadtest-baseline-payment.txt` dan `loadtest-baseline-notification.txt`.
+
+**Baseline Metrics (Snapshot: 2026-08-21 09:15 UTC):**
+
+**Payment Service — Latency (ms):**
+| Stat | Value |
+|------|-------|
+| p50 (median) | 237 ms |
+| p95 | 550 ms |
+| p99 | 693 ms |
+| Avg | 262 ms |
+| Max | 1202 ms |
+
+**Payment Service — Throughput:**
+| Metric | Value |
+|--------|-------|
+| Avg Req/Sec | 1,895 |
+| Min Req/Sec | 913 |
+| Max Req/Sec | 2,453 |
+| Total requests | 38,000 |
+| Error rate | 0% |
+
+**Notification Service — Latency (ms):**
+| Stat | Value |
+|------|-------|
+| p50 (median) | 333 ms |
+| p95 | 649 ms |
+| p99 | 720 ms |
+| Avg | 357 ms |
+| Max | 1193 ms |
+
+**Notification Service — Throughput:**
+| Metric | Value |
+|--------|-------|
+| Avg Req/Sec | 1,395 |
+| Min Req/Sec | 780 |
+| Max Req/Sec | 1,828 |
+| Total requests | 28,000 |
+| Error rate | 0% |
+
+**Penilaian kritis:**
+- **p50 latency 237ms payment** — acceptable untuk gateway. Non-database service (notification) lebih lambat (357ms avg) karena tidak optimized.
+- **0% error** — semua 38k request payment berhasil, load balancer bekerja.
+- **Throughput gap (1895 vs 1395 Req/Sec)** — payment lebih cepat karena endpoint stateless, notification pun begitu tapi di-setup kurang optimal.
+
+**Yang ditolak dari saran Copilot:**
+- Saran: "Pakai `image: latest` untuk autocannon" — **DITOLAK.** Latest tag tidak reproducible, dipakai `node:22-alpine` versi pinpoint.
+- Saran: "Letakkan `POSTGRES_PASSWORD` di docker-compose tanpa encryption" — **DITOLAK.** Password di source control berisiko. Pakai env file atau secrets di production.
+
+---
+
+### 5. Arsitektur Scalable — Dokumentasi
+
+**Keputusan:**
+1. **Stateless services** — Node.js instance tidak simpan session di memory, memungkinkan 3 replica bekerja independen.
+2. **Load balancer (Nginx)** — Mengarahkan traffic dengan `least_conn`.
+3. **Docker DNS** — Automatic round-robin ke replica.
+4. **Performance measurement** — Baseline ditetapkan, siap untuk optimasi di iterasi berikutnya.
+
+**Metrik yang dipantau:**
+- **Latency:** p50, p95, p99 (tidak hanya avg — tail latency penting untuk UX).
+- **Throughput:** Req/Sec (stabil, atau naik setelah optimasi?).
+- **Error rate:** Apakah load balancer drop request atau serve error?
+
+---
+
+### 6. File Deliverable Layer 2
+
+✅ `docker-compose.yml` — 3 replica setiap service, depends_on dengan healthcheck  
+✅ `nginx.conf` — load balancer least_conn, request tracing  
+✅ `loadtest.sh` — automated load testing script  
+✅ `loadtest-baseline-payment.txt` — baseline metrics  
+✅ `loadtest-baseline-notification.txt` — baseline metrics  
+✅ `package-lock.json` × 4 — reproducible builds  
+✅ Dockerfile × 4 — optimized dengan npm ci  
+
+---
+
+## Catatan Umum (Updated)
+
+- Semua output Copilot **diverifikasi** sebelum di-commit.
+- **Best practices diterapkan:**
+  - Dockerfile multi-layer cache optimization.
+  - Nginx load balancing dengan least_conn.
+  - Automated load testing untuk performance baseline.
+  - Metrics-driven decision making (tidak menebak, mengukur).
+- **Rejections documented:**
+  - `image: latest` → versi pinpoint (reproducibility).
+  - Password di source → env file atau secrets (security).
+- Siap untuk **Layer 3 — Testing Under Load** dengan optimization berdasarkan baseline ini.
