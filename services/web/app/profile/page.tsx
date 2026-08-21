@@ -139,27 +139,3 @@ export default function ProfilePage() {
     </div>
   )
 }
-              <p className="text-sm font-semibold text-wt-text">{label}</p>
-              <p className="text-xs text-wt-muted">{desc}</p>
-            </div>
-            <ChevronRight size={15} className="text-wt-border flex-shrink-0" />
-          </motion.button>
-        ))}
-
-        {/* Logout */}
-        <motion.button
-          className="flex items-center gap-3.5 p-4 bg-wt-card border border-wt-red/30 rounded-2xl w-full mt-1"
-          whileTap={{ scale: 0.98 }}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: MENU.length * 0.05 + 0.3 }}
-        >
-          <div className="w-10 h-10 rounded-xl bg-wt-red/10 flex items-center justify-center flex-shrink-0">
-            <LogOut size={17} className="text-wt-red" />
-          </div>
-          <span className="text-sm font-semibold text-wt-red">Keluar</span>
-        </motion.button>
-      </div>
-    </div>
-  )
-}
