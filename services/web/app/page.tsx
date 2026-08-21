@@ -10,7 +10,7 @@ import { events as dummyEvents } from '@/lib/dummy-data'
 import { fetchEvents } from '@/lib/api'
 import type { Event } from '@/lib/dummy-data'
 
-const CATS = ['Semua', 'Makassar', 'Jakarta', 'Rock', 'Pop', 'Jazz', 'Indie', 'R&B', 'Folk']
+const CATS = ['Semua', 'Makassar', 'Rock', 'Pop', 'Jazz', 'Indie', 'R&B', 'Folk']
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -23,11 +23,17 @@ function getGreeting() {
 
 export default function HomePage() {
   const [cat, setCat]         = useState('Semua')
-  const [allEvents, setAll]   = useState<Event[]>(dummyEvents)
+  const [allEvents, setAll]   = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    fetchEvents(1, 50).then(data => { if (data.length > 0) setAll(data) })
+    fetchEvents(1, 54).then(data => {
+      // Hanya tampilkan event aktif (status aktif dari API, tanggal >= hari ini)
+      const today = new Date().toISOString().slice(0, 10)
+      const aktif = data.filter(e => e.seats > 0 && e.dateRaw >= today)
+      setAll(aktif.length > 0 ? aktif : data.filter(e => e.seats > 0))
+    }).finally(() => setLoading(false))
   }, [])
 
   const featured = allEvents.filter(e => e.isHot)
@@ -88,11 +94,22 @@ export default function HomePage() {
           <Zap size={15} className="text-wt-accent" fill="#f97316" />
           Sedang Ramai
         </span>
-        <button className="text-[12px] text-wt-accent font-bold">Lihat semua</button>
+        <button
+          className="text-[12px] text-wt-accent font-bold"
+          onClick={() => router.push('/explore')}
+        >Lihat semua</button>
       </div>
 
       <div className="flex gap-3 px-5 pb-6 overflow-x-auto no-scrollbar">
-        {featured.map((event, i) => (
+        {loading ? (
+          <div className="flex items-center justify-center w-full py-6">
+            <p className="text-wt-muted text-sm">Memuat konser…</p>
+          </div>
+        ) : featured.length === 0 ? (
+          <div className="flex items-center justify-center w-full py-6">
+            <p className="text-wt-muted text-sm">Belum ada konser hot</p>
+          </div>
+        ) : featured.map((event, i) => (
           <motion.div
             key={event.id}
             initial={{ opacity: 0, x: 30 }}
