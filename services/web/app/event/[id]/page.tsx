@@ -25,8 +25,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     fetchEvent(numId).then(data => { if (data) setEvent(data) })
   }, [numId])
 
-  const serviceFee     = 10000
-  const total          = event.price * qty + serviceFee
   if (!event) {
     return (
       <div className="flex items-center justify-center h-screen">
