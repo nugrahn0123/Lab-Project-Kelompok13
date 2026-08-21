@@ -19,8 +19,8 @@ export const metadata: Metadata = {
     title: 'WarTiket',
   },
   icons: {
-    icon: '/icons/icon-192.png',
-    apple: '/icons/icon-192.png',
+    icon: '/icons/launchericon-192x192.png',
+    apple: '/icons/launchericon-192x192.png',
   },
 }
 
