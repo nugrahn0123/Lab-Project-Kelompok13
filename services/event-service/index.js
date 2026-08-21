@@ -40,13 +40,21 @@ async function connectRedis() {
 }
 
 // Jalankan migrasi maju-saja sebelum server siap menerima request
+// Advisory lock (1001) mencegah race condition saat 3 replika startup bersamaan
 async function initSchema() {
-  const migrDir = path.join(__dirname, "migrations");
-  const files = fs.readdirSync(migrDir).filter(f => f.endsWith(".sql")).sort();
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(migrDir, file), "utf8");
-    await pool.query(sql);
-    console.log(`event-service: migrasi ${file} selesai`);
+  const client = await pool.connect();
+  try {
+    await client.query('SELECT pg_advisory_lock(1001)');
+    const migrDir = path.join(__dirname, "migrations");
+    const files = fs.readdirSync(migrDir).filter(f => f.endsWith(".sql")).sort();
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(migrDir, file), "utf8");
+      await client.query(sql);
+      console.log(`event-service: migrasi ${file} selesai`);
+    }
+  } finally {
+    await client.query('SELECT pg_advisory_unlock(1001)');
+    client.release();
   }
 }
 
