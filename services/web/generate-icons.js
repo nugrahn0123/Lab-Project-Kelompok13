@@ -37,32 +37,13 @@ if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'icon-192.svg'), makeSVG(192));
 fs.writeFileSync(path.join(outDir, 'icon-512.svg'), makeSVG(512));
 
-// Buat PNG placeholder via Canvas (jika tersedia)
-try {
-  const { createCanvas } = require('canvas');
-  [192, 512].forEach(size => {
-    const canvas = createCanvas(size, size);
-    const ctx = canvas.getContext('2d');
-    // Background
-    const grad = ctx.createLinearGradient(0, 0, size, size);
-    grad.addColorStop(0, '#1a1a2e'); grad.addColorStop(1, '#0a0a1a');
-    ctx.fillStyle = grad; ctx.roundRect(0, 0, size, size, size * 0.2); ctx.fill();
-    // Tiket
-    const tg = ctx.createLinearGradient(0, 0, size, size);
-    tg.addColorStop(0, '#f97316'); tg.addColorStop(1, '#fb923c');
-    ctx.fillStyle = tg; ctx.roundRect(size*0.15, size*0.28, size*0.7, size*0.44, size*0.06); ctx.fill();
-    // W text
-    ctx.fillStyle = '#1a1a2e';
-    ctx.font = `900 ${size*0.24}px Arial Black`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('W', size*0.55, size*0.5);
-    fs.writeFileSync(path.join(outDir, `icon-${size}.png`), canvas.toBuffer('image/png'));
-    console.log(`icon-${size}.png dibuat`);
-  });
-} catch {
-  // canvas tidak tersedia — copy SVG sebagai fallback
-  console.log('canvas tidak tersedia, menggunakan SVG. Rename ke .png jika diperlukan.');
-  fs.copyFileSync(path.join(outDir, 'icon-192.svg'), path.join(outDir, 'icon-192.png'));
-  fs.copyFileSync(path.join(outDir, 'icon-512.svg'), path.join(outDir, 'icon-512.png'));
-}
+// Konversi SVG ke PNG menggunakan @resvg/resvg-js
+const { Resvg } = require('@resvg/resvg-js');
+[192, 512].forEach(size => {
+  const svg = makeSVG(size);
+  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: size } });
+  const pngData = resvg.render();
+  fs.writeFileSync(path.join(outDir, `icon-${size}.png`), pngData.asPng());
+  console.log(`icon-${size}.png dibuat`);
+});
 console.log('Icons siap di public/icons/');
