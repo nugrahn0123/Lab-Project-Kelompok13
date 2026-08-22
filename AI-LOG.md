@@ -510,3 +510,108 @@ lab-project-kelompok13-event-service-3
   - `image: latest` → versi pinpoint (reproducibility).
   - Password di source → env file atau secrets (security).
 - Siap untuk **Layer 3 — Testing Under Load** dengan optimization berdasarkan baseline ini.
+
+---
+
+## Sesi 6 — 2026-08-22 · QA, Load-Test & Dokumentasi · Lapisan 1–3
+
+### 1. Buat `tests/smoke.test.js` — verifikasi tiap layanan hidup & jujur
+
+**Konteks:** Peran QA membuat smoke test wajib (Lapisan 1). Test menggunakan `node:test` bawaan Node.js — tidak ada dependency tambahan.
+
+**Prompt ke Copilot:**
+> "Buatkan tests/smoke.test.js untuk War Tiket Konser menggunakan node:test bawaan Node.js. Test harus mencakup: GET /health → 200, GET /events → 200 + array .data, GET /events/34 → 200, GET /events/9999 → 404, POST /events/34/lock sah → 201, POST /events/34/lock tanpa qty → 400, POST /events/34/lock tanpa userId → 400, POST /payments tanpa body → 400, POST /payments metode tidak valid → 400, POST /notifications sah → 202, POST /notifications tanpa userId → 400, POST /notifications jenis tidak valid → 400, GET /tickets → 200."
+
+**Diterima:**
+- Pola `assert.equal(res.status, 201)` — sesuai modul, sederhana dan jelas.
+- `assert.ok(Array.isArray(body.data), ...)` — memverifikasi struktur respons, tidak hanya status code.
+- `const BASE = process.env.BASE || "http://localhost:8080"` — bisa di-override untuk lingkungan berbeda tanpa ubah kode.
+- Komentar inline menjelaskan gap routing nginx → ticket-service untuk POST lock.
+
+**Ditolak dari saran Copilot:**
+- Saran memakai `jest` dan `supertest` — **DITOLAK.** Modul mensyaratkan `node --test` bawaan, tidak perlu install Jest.
+- Saran `beforeAll()` setup global — **DITOLAK.** Smoke test harus mandiri, tidak bergantung pada state antar test.
+- Saran test yang mengandalkan data yang di-insert test sebelumnya — **DITOLAK.** Tiap test harus bisa jalan sendiri.
+
+**Temuan penting (dari analisis kode):**
+- `POST /events/:id/lock` di nginx diarahkan ke `event_cluster` (event-service, port 3001).
+- Endpoint tersebut diimplementasikan di `ticket-service` (port 3002), bukan event-service.
+- **Akibat:** `POST /events/34/lock` via gateway mengembalikan `404 Cannot POST /events/34/lock` dari event-service — bukan 201.
+- **Perbaikan diterapkan:** `location ~ ^/events/[0-9]+/lock$ { proxy_pass http://ticket_cluster; }` ditambahkan di `nginx/default.conf` dan `nginx.conf` sebelum `location /events` — regex match lebih spesifik selalu dievaluasi nginx lebih dulu dari prefix match.
+
+**Verifikasi:**
+- Jalankan: `docker compose up -d --build; BASE=http://localhost:8080 node --test tests/`
+- Node mencetak ringkasan `tests N, pass N, fail N`.
+- Ekspektasi: 11 dari 13 test lulus; 2 test lock gagal (404 vs 201) — membuktikan temuan routing.
+
+---
+
+### 2. Buat `tests/rebutan.test.js` — buktikan atomisitas lock kursi
+
+**Konteks:** Peran QA membuat uji rebutan (Lapisan 2). Membuktikan bahwa implementasi Lua atomik + DB constraint `kursi_tersisa >= 0` tidak mengizinkan oversell.
+
+**Prompt ke Copilot:**
+> "Buatkan tests/rebutan.test.js yang menembak 200 permintaan POST /events/34/lock bersamaan menggunakan Promise.all. Baca stok awal dulu, lalu assert: sisa >= 0, sukses <= stokAwal, sukses + ditolak === PENYERBU (tidak ada 5xx), dan konsistensi stokAwal - sukses === stokSesudah."
+
+**Diterima:**
+- Pola `Promise.all(Array.from({ length: PENYERBU }, lock))` — semua permintaan benar-benar bersamaan, bukan loop seri.
+- Baca stok awal sebelum uji (`stokAwal = before.kursi_tersisa`) — assertion adaptif terhadap kondisi DB nyata.
+- 4 assertion berlapis: sisa >= 0, sukses <= stokAwal, no 5xx, konsistensi stok.
+- `EVENT_ID` dan `PENYERBU` bisa di-override via env variable untuk fleksibilitas.
+
+**Ditolak dari saran Copilot:**
+- Saran hard-code `const STOK = 400` — **DITOLAK.** DB bisa berubah state; baca aktual sebelum uji.
+- Saran loop `for await` bukan `Promise.all` — **DITOLAK.** Loop seri tidak menguji konkurensi, permintaan tidak bersamaan.
+- Saran reset DB sebelum tiap test run — **DITOLAK.** Smoke test tidak boleh memodifikasi infrastruktur; baca dan assert saja.
+
+**Verifikasi:**
+- Test seharusnya lulus jika routing nginx ke ticket-service sudah diperbaiki.
+- Jika lock endpoint kembali 404 semua: `sukses + ditolak = 0 ≠ 200` → test gagal dengan pesan jelas.
+- Kunci pengujian: assertion ke-4 (`stokAwal - sukses === stokSesudah`) membuktikan atomisitas tanpa asumsi nilai awal.
+
+---
+
+### 3. Analisis gap arsitektur: nginx routing `POST /events/:id/lock`
+
+**Konteks:** Ditemukan saat menulis smoke test — bukan dari saran Copilot, melainkan dari pembacaan kode langsung.
+
+**Temuan:**
+```
+nginx/default.conf:
+  location /events { proxy_pass http://event_cluster; }   ← menangkap semua /events/*
+  location /tickets { proxy_pass http://ticket_cluster; }
+
+services/event-service/index.js:
+  app.post("/events/:id/lock-internal", ...) ← INTERNAL, bukan publik
+  ← TIDAK ada app.post("/events/:id/lock")
+
+services/ticket-service/index.js:
+  app.post("/events/:id/lock", ...) ← PUBLIK, tapi tidak bisa dicapai via gateway
+```
+
+**Penilaian kritis:**
+- Endpoint kritis (`POST /events/{id}/lock`) dalam `openapi.yaml` tidak terjangkau lewat gateway — kontrak vs implementasi tidak sinkron.
+- Ini temuan bernilai tinggi: sistem lulus uji GET tetapi gagal pada jalur bisnis utama (pembelian tiket).
+- Perbaikan minimal: tambah `location ~ ^/events/[0-9]+/lock { proxy_pass http://ticket_cluster; }` di nginx SEBELUM `location /events`.
+- Perbaikan ini tidak mengubah kode service — hanya konfigurasi nginx.
+
+---
+
+### 4. Membuat `LAPORAN.md` — gabungan tiga lapisan
+
+**Prompt ke Copilot:**
+> "Susun LAPORAN.md dari tiga lapisan berdasarkan angka nyata dari loadtest-baseline-payment.txt, loadtest-baseline-notification.txt, dan findings smoke test. Sertakan tabel sebelum-sesudah, daftar endpoint, tautan openapi.yaml dan docker-compose.yml."
+
+**Diterima:**
+- Struktur sesuai modul: Ringkasan Produk → Lapisan 1 → Lapisan 2 → Lapisan 3 → Pelajaran → Lampiran.
+- Tabel loadtest dengan angka aktual dari file baseline (bukan estimasi).
+- Temuan routing nginx dicantumkan eksplisit di bagian Lapisan 1.
+
+**Ditolak dari saran Copilot:**
+- Saran mengisi tabel loadtest dengan angka perkiraan — **DITOLAK.** Angka harus dari file baseline yang sudah ada.
+- Saran meringkas temuan sebagai "minor issue" — **DITOLAK.** Routing gap adalah bug kritis pada jalur pembelian utama.
+
+**Verifikasi:**
+- `LAPORAN.md` berisi tabel sebelum-sesudah dari data baseline yang ada.
+- Temuan routing dicantumkan dengan kode yang menjelaskan root cause.
+- Lampiran berisi perintah uji yang bisa diulang siapa saja.
